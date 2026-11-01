@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bob Bae</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --accent: #0EA5E9;
+      --text: #1E293B;
+      --muted: #475569;
+      --bg-from: #F0F9FF;
+      --bg-to: #E0F2FE;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: linear-gradient(160deg, var(--bg-from), var(--bg-to));
+      background-attachment: fixed;
+    }
+
+    .dots {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .dot {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.25;
+      animation: float var(--dur) ease-in-out var(--delay) infinite alternate;
+    }
+
+    @keyframes float {
+      from { transform: translate(0, 0); }
+      to   { transform: translate(var(--dx), var(--dy)); }
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      padding: 48px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(14, 165, 233, 0.12);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 48px rgba(14, 165, 233, 0.2);
+    }
+
+    .avatar {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #fff;
+      background: linear-gradient(135deg, #38BDF8, var(--accent));
+      box-shadow: 0 6px 16px rgba(14, 165, 233, 0.35);
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .bio {
+      margin-top: 8px;
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .tags {
+      list-style: none;
+      margin-top: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .tags li { list-style: none; }
+    .tags li::marker { content: none; }
+
+    .tag {
+      display: inline-block;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--accent);
+      background: rgba(14, 165, 233, 0.1);
+      border: 1px solid rgba(14, 165, 233, 0.25);
+      border-radius: 999px;
+      cursor: default;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .tag:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .card:hover .tag {
+      animation: tag-rise 0.5s ease-out backwards;
+    }
+    .card:hover .tags li:nth-child(1) .tag { animation-delay: 0s; }
+    .card:hover .tags li:nth-child(2) .tag { animation-delay: 0.1s; }
+    .card:hover .tags li:nth-child(3) .tag { animation-delay: 0.2s; }
+    .card:hover .tags li:nth-child(4) .tag { animation-delay: 0.3s; }
+
+    @keyframes tag-rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dot,
+      .card:hover .tag { animation: none; }
+      .card { transition: none; }
+    }
+
+    .links {
+      margin-top: 32px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      border-radius: 12px;
+      transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .link:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .link svg { width: 18px; height: 18px; fill: currentColor; }
+
+    @media (max-width: 480px) {
+      body { padding: 16px; }
+      .card { padding: 36px 20px; border-radius: 20px; }
+      .avatar { width: 80px; height: 80px; font-size: 28px; }
+      h1 { font-size: 24px; }
+      .bio { font-size: 15px; }
+      .links { flex-direction: column; width: 100%; }
+      .link { justify-content: center; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dots" id="dots" aria-hidden="true"></div>
+  <main class="card">
+    <div class="avatar" aria-hidden="true">BB</div>
+    <h1>Bob Bae</h1>
+    <p class="bio">I like coding, coffee, books, and walking.</p>
+
+    <ul class="tags" aria-label="관심 태그">
+      <li><span class="tag">Reading</span></li>
+      <li><span class="tag">Travel</span></li>
+      <li><span class="tag">Photos</span></li>
+      <li><span class="tag">Coffee</span></li>
+    </ul>
+
+    <nav class="links" aria-label="Social links">
+      <a class="link" href="https://github.com/rangyi22" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.575.105.785-.25.785-.555 0-.275-.01-1-.015-1.96-3.2.695-3.875-1.54-3.875-1.54-.525-1.33-1.28-1.685-1.28-1.685-1.045-.715.08-.7.08-.7 1.155.08 1.765 1.185 1.765 1.185 1.025 1.755 2.69 1.25 3.345.955.105-.745.4-1.25.73-1.54-2.555-.29-5.24-1.28-5.24-5.69 0-1.255.45-2.28 1.185-3.085-.12-.29-.515-1.46.11-3.045 0 0 .965-.31 3.165 1.18a10.99 10.99 0 0 1 5.76 0c2.2-1.49 3.165-1.18 3.165-1.18.625 1.585.23 2.755.115 3.045.735.805 1.18 1.83 1.18 3.085 0 4.42-2.69 5.395-5.255 5.68.415.355.78 1.06.78 2.135 0 1.54-.015 2.78-.015 3.16 0 .31.205.67.79.555C20.215 21.385 23.5 17.075 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+        GitHub
+      </a>
+      <a class="link" href="https://www.linkedin.com/in/wk-bae-344070100/" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>
+        LinkedIn
+      </a>
+    </nav>
+  </main>
+
+  <script>
+    (function createDots() {
+      var container = document.getElementById("dots");
+      var rand = function (min, max) { return min + Math.random() * (max - min); };
+      for (var i = 0; i < 30; i++) {
+        var dot = document.createElement("span");
+        var size = rand(4, 12);
+        dot.className = "dot";
+        dot.style.width = dot.style.height = size + "px";
+        dot.style.left = rand(0, 100) + "%";
+        dot.style.top = rand(0, 100) + "%";
+        dot.style.opacity = rand(0.15, 0.4).toFixed(2);
+        dot.style.setProperty("--dx", rand(-60, 60).toFixed(0) + "px");
+        dot.style.setProperty("--dy", rand(-80, 80).toFixed(0) + "px");
+        dot.style.setProperty("--dur", rand(10, 22).toFixed(1) + "s");
+        dot.style.setProperty("--delay", "-" + rand(0, 20).toFixed(1) + "s");
+        container.appendChild(dot);
+      }
+    })();
+  </script>
+</body>
+</html>
