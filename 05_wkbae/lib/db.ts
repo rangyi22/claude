@@ -21,6 +21,16 @@ export interface WeekDoc {
   createdAt: Date;
 }
 
+export interface MonthDoc {
+  _id: ObjectId;
+  userId: string;
+  goalId: ObjectId;
+  title: string;
+  startDate: string;
+  endDate: string;
+  createdAt: Date;
+}
+
 export interface TaskDoc {
   _id: ObjectId;
   userId: string;
@@ -47,6 +57,7 @@ async function prepare(client: MongoClient): Promise<Db> {
   const db = client.db(process.env.MONGODB_DB ?? 'todo_app');
   await Promise.all([
     db.collection('weeks').createIndex({ goalId: 1 }),
+    db.collection('months').createIndex({ goalId: 1 }),
     db.collection('tasks').createIndex({ weekId: 1 }),
     db.collection('tasks').createIndex({ weekId: 1, status: 1, order: 1 }),
     db.collection('tasks').createIndex({ date: 1 }),
@@ -77,6 +88,7 @@ export async function collections() {
   return {
     goals: db.collection<GoalDoc>('goals'),
     weeks: db.collection<WeekDoc>('weeks'),
+    months: db.collection<MonthDoc>('months'),
     tasks: db.collection<TaskDoc>('tasks'),
   };
 }

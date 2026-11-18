@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const ITEMS = [
-  { href: '/goals', label: '목표', prefixes: ['/goals', '/weeks'] },
+  { href: '/goals', label: 'Schedule', prefixes: ['/goals', '/weeks'] },
   { href: '/tasks', label: '기간별 보기', prefixes: ['/tasks'] },
   { href: '/summary', label: '달성 현황', prefixes: ['/summary'] },
 ];

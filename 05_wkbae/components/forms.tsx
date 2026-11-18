@@ -1,7 +1,7 @@
 'use client';
 
 import { api } from '@/lib/api';
-import type { Goal, Task, Week } from '@/lib/types';
+import type { Goal, Month, Task, Week } from '@/lib/types';
 import { Modal } from './Modal';
 
 function text(data: FormData, name: string): string {
@@ -22,7 +22,7 @@ export function GoalForm({ goal, onClose, onSaved }: FormProps & { goal?: Goal }
 
   return (
     <Modal
-      title={goal ? '목표 수정' : '새 목표'}
+      title={goal ? 'Schedule 수정' : '새 Schedule'}
       submitLabel="저장"
       onClose={onClose}
       onSubmit={submit}
@@ -45,34 +45,39 @@ export function GoalForm({ goal, onClose, onSaved }: FormProps & { goal?: Goal }
   );
 }
 
-interface WeekFormProps extends FormProps {
+type Plan = Pick<Week, 'id' | 'title' | 'startDate' | 'endDate'>;
+
+interface PlanFormProps extends FormProps {
   goalId: string;
-  week?: Week;
+  plan?: Plan;
+  label: string;
+  endpoint: string;
 }
 
-export function WeekForm({ goalId, week, onClose, onSaved }: WeekFormProps) {
+// 주간 계획과 월간 계획은 입력 항목이 같아 한 폼을 함께 쓴다.
+function PlanForm({ goalId, plan, label, endpoint, onClose, onSaved }: PlanFormProps) {
   async function submit(data: FormData) {
     const fields = {
       title: text(data, 'title'),
       startDate: text(data, 'startDate'),
       endDate: text(data, 'endDate'),
     };
-    await (week
-      ? api(`/api/weeks/${week.id}`, 'PATCH', fields)
-      : api('/api/weeks', 'POST', { goalId, ...fields }));
+    await (plan
+      ? api(`${endpoint}/${plan.id}`, 'PATCH', fields)
+      : api(endpoint, 'POST', { goalId, ...fields }));
     await onSaved();
   }
 
   return (
     <Modal
-      title={week ? '주간 계획 수정' : '새 주간 계획'}
+      title={plan ? `${label} 수정` : `새 ${label}`}
       submitLabel="저장"
       onClose={onClose}
       onSubmit={submit}
     >
       <label className="field">
         제목
-        <input name="title" required defaultValue={week?.title} className="input" autoFocus />
+        <input name="title" required defaultValue={plan?.title} className="input" autoFocus />
       </label>
       <label className="field">
         시작일
@@ -80,15 +85,51 @@ export function WeekForm({ goalId, week, onClose, onSaved }: WeekFormProps) {
           name="startDate"
           type="date"
           required
-          defaultValue={week?.startDate}
+          defaultValue={plan?.startDate}
           className="input"
         />
       </label>
       <label className="field">
         종료일
-        <input name="endDate" type="date" required defaultValue={week?.endDate} className="input" />
+        <input name="endDate" type="date" required defaultValue={plan?.endDate} className="input" />
       </label>
     </Modal>
+  );
+}
+
+interface WeekFormProps extends FormProps {
+  goalId: string;
+  week?: Week;
+}
+
+export function WeekForm({ goalId, week, onClose, onSaved }: WeekFormProps) {
+  return (
+    <PlanForm
+      goalId={goalId}
+      plan={week}
+      label="주간 계획"
+      endpoint="/api/weeks"
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  );
+}
+
+interface MonthFormProps extends FormProps {
+  goalId: string;
+  month?: Month;
+}
+
+export function MonthForm({ goalId, month, onClose, onSaved }: MonthFormProps) {
+  return (
+    <PlanForm
+      goalId={goalId}
+      plan={month}
+      label="월간 계획"
+      endpoint="/api/months"
+      onClose={onClose}
+      onSaved={onSaved}
+    />
   );
 }
 

@@ -65,7 +65,7 @@ test('목표 → 주간 → 할 일을 화면에서 만들고 드래그하면 �
 }) => {
   const name = unique();
   await page.goto('/goals');
-  await page.getByRole('button', { name: '새 목표' }).click();
+  await page.getByRole('button', { name: '새 Schedule' }).click();
   await page.getByLabel('제목').fill(`화면 목표 ${name}`);
   await page.getByRole('button', { name: '저장' }).click();
   await page.getByRole('link', { name: `화면 목표 ${name}` }).click();
@@ -240,12 +240,12 @@ test('목표와 할 일을 수정하고, 하위가 있는 목표 삭제는 막�
 
   await page.goto('/goals');
   const row = page.getByTestId('goal-card').filter({ hasText: goal.title });
-  await row.getByRole('button', { name: '삭제' }).click();
+  await row.getByRole('button', { name: '삭제', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: '삭제' }).click();
   await expect(alert(page)).toContainText('주간 계획 1개');
   await page.getByRole('button', { name: '취소' }).click();
 
-  await row.getByRole('button', { name: '수정' }).click();
+  await row.getByRole('button', { name: '수정', exact: true }).click();
   await page.getByLabel('제목').fill(`${goal.title} 수정`);
   await page.getByRole('button', { name: '저장' }).click();
   await expect(page.getByRole('link', { name: `${goal.title} 수정` })).toBeVisible();
@@ -369,7 +369,7 @@ test('할 일 관리 홈은 오늘의 할 일과 이번 주 계획을 보여 주
 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '할 일 관리', level: 1 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '1년 목표' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Schedule', exact: true })).toHaveCount(0);
   await expect(page.getByTestId('today-task').filter({ hasText: `오늘일 ${name}` })).toBeVisible();
 
   const thisWeek = page.getByTestId('home-week').filter({ hasText: week.title });
@@ -386,12 +386,18 @@ test('메뉴는 화면마다 다른 곳으로 이동하고 현재 위치를 표�
     'aria-current',
     'page',
   );
-  await expect(nav.getByRole('link', { name: '목표' })).not.toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'Schedule', exact: true })).not.toHaveAttribute(
+    'aria-current',
+    'page',
+  );
 
-  await nav.getByRole('link', { name: '목표' }).click();
+  await nav.getByRole('link', { name: 'Schedule', exact: true }).click();
   await expect(page).toHaveURL(/\/goals$/);
-  await expect(page.getByRole('heading', { name: '1년 목표' })).toBeVisible();
-  await expect(nav.getByRole('link', { name: '목표' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Schedule', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Schedule', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(nav.getByRole('link', { name: '할 일 관리' })).not.toHaveAttribute(
     'aria-current',
     'page',
@@ -400,16 +406,172 @@ test('메뉴는 화면마다 다른 곳으로 이동하고 현재 위치를 표�
   await nav.getByRole('link', { name: '할 일 관리' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { name: '할 일 관리', level: 1 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '1년 목표' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Schedule', exact: true })).toHaveCount(0);
 });
 
 test('주간 보드는 목표 메뉴를 강조하고 목표 목록 링크가 /goals로 간다', async ({ page }) => {
   const { goal } = await seed(page);
   await page.goto(`/goals/${goal.id}`);
-  await expect(page.getByRole('navigation').getByRole('link', { name: '목표' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
-  await page.getByRole('link', { name: '← 목표 목록' }).click();
+  await expect(
+    page.getByRole('navigation').getByRole('link', { name: 'Schedule', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('link', { name: '← Schedule 목록' }).click();
   await expect(page).toHaveURL(/\/goals$/);
+});
+
+test('목표 화면에서 주간 계획을 추가·수정·삭제한다', async ({ page }) => {
+  const name = unique();
+  const goalResponse = await page.request.post('/api/goals', {
+    data: { title: `주간목표 ${name}`, year: 2026 },
+  });
+  const goal = await goalResponse.json();
+  await page.goto('/goals');
+  const goalCard = page.getByTestId('goal-card').filter({ hasText: goal.title });
+  const dialog = page.getByRole('dialog');
+  await expect(goalCard.getByText('주간 계획이 없습니다.')).toBeVisible();
+
+  await goalCard.getByRole('button', { name: '주간 계획 추가' }).click();
+  await dialog.getByLabel('제목').fill(`잘못된주 ${name}`);
+  await dialog.getByLabel('시작일').fill('2026-11-20');
+  await dialog.getByLabel('종료일').fill('2026-11-16');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('시작일은 종료일보다');
+  await dialog.getByRole('button', { name: '취소' }).click();
+  await expect(goalCard.getByTestId('goal-week')).toHaveCount(0);
+
+  await goalCard.getByRole('button', { name: '주간 계획 추가' }).click();
+  await dialog.getByLabel('제목').fill(`첫주 ${name}`);
+  await dialog.getByLabel('시작일').fill('2026-11-09');
+  await dialog.getByLabel('종료일').fill('2026-11-15');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  const added = goalCard.getByTestId('goal-week').filter({ hasText: `첫주 ${name}` });
+  await expect(added).toContainText('2026-11-09 ~ 2026-11-15');
+  await expect(added.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  await expect(goalCard).toContainText('주간 계획 1개');
+
+  await added.getByRole('button', { name: `첫주 ${name} 수정` }).click();
+  await dialog.getByLabel('제목').fill(`둘째주 ${name}`);
+  await dialog.getByLabel('종료일').fill('2026-11-16');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  const edited = goalCard.getByTestId('goal-week').filter({ hasText: `둘째주 ${name}` });
+  await expect(edited).toContainText('2026-11-09 ~ 2026-11-16');
+  await page.reload();
+  await expect(edited).toContainText('2026-11-09 ~ 2026-11-16');
+
+  const weeks = await (await page.request.get(`/api/weeks?goalId=${goal.id}`)).json();
+  const created = await page.request.post('/api/tasks', {
+    data: { weekId: weeks[0].id, title: '구간 끝 일', date: '2026-11-16', weight: 1 },
+  });
+  const { task } = await created.json();
+
+  await edited.getByRole('button', { name: `둘째주 ${name} 수정` }).click();
+  await dialog.getByLabel('종료일').fill('2026-11-10');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('벗어나는 할 일 1개');
+  await dialog.getByRole('button', { name: '취소' }).click();
+  await expect(edited).toContainText('2026-11-09 ~ 2026-11-16');
+
+  await edited.getByRole('button', { name: `둘째주 ${name} 삭제` }).click();
+  await dialog.getByRole('button', { name: '삭제' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('할 일 1개');
+  await dialog.getByRole('button', { name: '취소' }).click();
+  await expect(edited).toBeVisible();
+
+  await page.request.delete(`/api/tasks/${task.id}`);
+  await page.reload();
+  await edited.getByRole('button', { name: `둘째주 ${name} 삭제` }).click();
+  await dialog.getByRole('button', { name: '삭제' }).click();
+  await expect(goalCard.getByTestId('goal-week')).toHaveCount(0);
+  await expect(goalCard.getByText('주간 계획이 없습니다.')).toBeVisible();
+});
+
+test('목표 화면은 목표마다 자기 주간 계획만 보여 준다', async ({ page }) => {
+  const name = unique();
+  async function post(url: string, data: unknown) {
+    return (await page.request.post(url, { data })).json();
+  }
+  const first = await post('/api/goals', { title: `가목표 ${name}`, year: 2026 });
+  const second = await post('/api/goals', { title: `나목표 ${name}`, year: 2026 });
+  const range = { startDate: '2026-11-02', endDate: '2026-11-08' };
+  await post('/api/weeks', { goalId: first.id, title: `가주간 ${name}`, ...range });
+  await post('/api/weeks', { goalId: second.id, title: `나주간 ${name}`, ...range });
+
+  await page.goto('/goals');
+  function cardOf(goal: { title: string }) {
+    return page.getByTestId('goal-card').filter({ hasText: goal.title });
+  }
+  await expect(cardOf(first).getByTestId('goal-week')).toHaveCount(1);
+  await expect(cardOf(first)).toContainText(`가주간 ${name}`);
+  await expect(cardOf(first)).not.toContainText(`나주간 ${name}`);
+  await expect(cardOf(second)).toContainText(`나주간 ${name}`);
+});
+
+test('Schedule 화면에서 월간 계획을 추가·수정·삭제하고 기간 안의 할 일로 진행률을 계산한다', async ({
+  page,
+}) => {
+  const name = unique();
+  const { goal, tasks } = await seed(page, [2, 3]);
+  await page.request.patch(`/api/tasks/${tasks[0].id}`, { data: { status: 'done' } });
+  await page.goto('/goals');
+  const goalCard = page.getByTestId('goal-card').filter({ hasText: goal.title });
+  const section = goalCard.getByTestId('month-section');
+  const dialog = page.getByRole('dialog');
+  await expect(section.getByText('월간 계획이 없습니다.')).toBeVisible();
+
+  await section.getByRole('button', { name: '월간 계획 추가' }).click();
+  await dialog.getByLabel('제목').fill(`잘못된달 ${name}`);
+  await dialog.getByLabel('시작일').fill('2026-11-30');
+  await dialog.getByLabel('종료일').fill('2026-11-01');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('시작일은 종료일보다');
+  await dialog.getByRole('button', { name: '취소' }).click();
+  await expect(section.getByTestId('goal-month')).toHaveCount(0);
+
+  await section.getByRole('button', { name: '월간 계획 추가' }).click();
+  await dialog.getByLabel('제목').fill(`11월 ${name}`);
+  await dialog.getByLabel('시작일').fill('2026-11-01');
+  await dialog.getByLabel('종료일').fill('2026-11-30');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  const added = section.getByTestId('goal-month').filter({ hasText: `11월 ${name}` });
+  await expect(added).toContainText('2026-11-01 ~ 2026-11-30');
+  await expect(added).toContainText('할 일 2개');
+  await expect(added.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '40');
+  await expect(goalCard).toContainText('월간 계획 1개');
+
+  await added.getByRole('button', { name: `11월 ${name} 수정` }).click();
+  await dialog.getByLabel('제목').fill(`수정한달 ${name}`);
+  await dialog.getByLabel('시작일').fill('2026-12-01');
+  await dialog.getByLabel('종료일').fill('2026-12-31');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  const edited = section.getByTestId('goal-month').filter({ hasText: `수정한달 ${name}` });
+  await expect(edited).toContainText('2026-12-01 ~ 2026-12-31');
+  await expect(edited).toContainText('할 일 0개');
+  await expect(edited.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  await page.reload();
+  await expect(edited).toContainText('2026-12-01 ~ 2026-12-31');
+
+  await goalCard.getByRole('button', { name: '삭제', exact: true }).click();
+  await dialog.getByRole('button', { name: '삭제' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('월간 계획 1개');
+  await dialog.getByRole('button', { name: '취소' }).click();
+
+  await edited.getByRole('button', { name: `수정한달 ${name} 삭제` }).click();
+  await dialog.getByRole('button', { name: '삭제' }).click();
+  await expect(section.getByTestId('goal-month')).toHaveCount(0);
+  await expect(section.getByText('월간 계획이 없습니다.')).toBeVisible();
+});
+
+test('Schedule 상세에서도 월간 계획을 추가한다', async ({ page }) => {
+  const name = unique();
+  const { goal } = await seed(page);
+  await page.goto(`/goals/${goal.id}`);
+  await page.getByRole('button', { name: '월간 계획 추가' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('제목').fill(`상세달 ${name}`);
+  await dialog.getByLabel('시작일').fill('2026-11-01');
+  await dialog.getByLabel('종료일').fill('2026-11-30');
+  await dialog.getByRole('button', { name: '저장' }).click();
+  const added = page.getByTestId('goal-month').filter({ hasText: `상세달 ${name}` });
+  await expect(added).toContainText('할 일 2개');
+  await expect(added.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
 });

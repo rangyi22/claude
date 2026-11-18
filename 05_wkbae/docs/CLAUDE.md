@@ -22,5 +22,7 @@ Next.js App Router, TypeScript, Tailwind CSS, MongoDB 공식 드라이버, zod, 
 - 날짜는 `YYYY-MM-DD` 문자열로 저장하고 비교한다.
 - 하위가 있는 목표·주간 계획은 삭제하지 않고 409를 반환한다.
 - 할 일 날짜는 연결된 주간 계획 기간 안이어야 한다.
+- 화면에서는 1년 목표를 Schedule이라 부른다(코드·API·DB 이름은 goal 그대로).
+- 월간 계획은 Schedule에 직접 연결되며 주간 계획과 나란히 둔다. 진행률은 같은 Schedule의 할 일 중 기간 안에 날짜가 든 것으로 계산하고, 월간 계획이 있으면 Schedule 삭제는 막는다.
 - 카드 이동 저장은 `lib/moveQueue.ts`를 거친다. 처리 중에 받은 조회 응답은 화면에 반영하지 않는다.
 - 함수는 선언문으로 쓴다(`func-style`). `console`은 쓰지 않는다.

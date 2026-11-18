@@ -9,6 +9,8 @@ import {
 import { GET as summaryGET } from '@/app/api/summary/route';
 import { GET as tasksGET, POST as tasksPOST } from '@/app/api/tasks/route';
 import { DELETE as taskDELETE, PATCH as taskPATCH } from '@/app/api/tasks/[id]/route';
+import { GET as monthsGET, POST as monthsPOST } from '@/app/api/months/route';
+import { DELETE as monthDELETE, PATCH as monthPATCH } from '@/app/api/months/[id]/route';
 import { POST as weeksPOST } from '@/app/api/weeks/route';
 import {
   DELETE as weekDELETE,
@@ -17,7 +19,15 @@ import {
 } from '@/app/api/weeks/[id]/route';
 import { POST as carryPOST } from '@/app/api/weeks/[id]/carry-over/route';
 import { closeDb, getDb } from '@/lib/db';
-import type { Goal, GoalDetail, Task, TaskMutationResult, Week, WeekDetail } from '@/lib/types';
+import type {
+  Goal,
+  GoalDetail,
+  Month,
+  Task,
+  TaskMutationResult,
+  Week,
+  WeekDetail,
+} from '@/lib/types';
 
 let mongo: MongoMemoryServer;
 
@@ -50,6 +60,15 @@ async function makeTask(weekId: string, weight = 1, date = '2026-11-03'): Promis
   return (await ok<TaskMutationResult>(created)).task;
 }
 
+async function makeMonth(
+  goalId: string,
+  startDate = '2026-11-01',
+  endDate = '2026-11-30',
+  title = '11월',
+) {
+  return ok<Month>(await monthsPOST(request('POST', { goalId, title, startDate, endDate })));
+}
+
 async function setStatus(id: string, status: string) {
   return ok<TaskMutationResult>(await taskPATCH(request('PATCH', { status }), ctx(id)));
 }
@@ -74,7 +93,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   const db = await getDb();
-  await Promise.all(['goals', 'weeks', 'tasks'].map((name) => db.collection(name).deleteMany({})));
+  await Promise.all(
+    ['goals', 'weeks', 'months', 'tasks'].map((name) => db.collection(name).deleteMany({})),
+  );
 });
 
 describe('연결 필수와 입력 검증', () => {
@@ -405,5 +426,98 @@ describe('요약', () => {
     }>(response);
     expect(summary.metrics).toEqual({ planStreak: 1, completionRate: 100 });
     expect(summary.goals[0].weeks[0].progress).toBe(100);
+  });
+});
+
+describe('월간 계획', () => {
+  it('Schedule 없이는 만들 수 없고 기간이 뒤집히면 400', async () => {
+    const range = { title: '11월', startDate: '2026-11-01', endDate: '2026-11-30' };
+    expect((await monthsPOST(request('POST', range))).status).toBe(400);
+    const missing = '0123456789abcdef01234567';
+    expect((await monthsPOST(request('POST', { goalId: missing, ...range }))).status).toBe(400);
+    const goal = await makeGoal();
+    const reversed = {
+      goalId: goal.id,
+      title: '11월',
+      startDate: '2026-11-30',
+      endDate: '2026-11-01',
+    };
+    const response = await monthsPOST(request('POST', reversed));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('시작일');
+  });
+
+  it('진행률은 같은 Schedule의 할 일 중 기간 안에 날짜가 든 것으로 계산한다', async () => {
+    const goalA = await makeGoal();
+    const goalB = await makeGoal();
+    const novA = await makeWeek(goalA.id, '2026-11-02', '2026-11-08');
+    const edgeA = await makeWeek(goalA.id, '2026-11-29', '2026-12-05');
+    const decA = await makeWeek(goalA.id, '2026-12-07', '2026-12-13');
+    const novB = await makeWeek(goalB.id, '2026-11-02', '2026-11-08');
+    const done = await makeTask(novA.id, 2, '2026-11-03');
+    await makeTask(novA.id, 3, '2026-11-04');
+    await makeTask(edgeA.id, 1, '2026-11-30');
+    await makeTask(edgeA.id, 1, '2026-12-01');
+    const december = await makeTask(decA.id, 5, '2026-12-08');
+    const other = await makeTask(novB.id, 1, '2026-11-03');
+    for (const task of [done, december, other]) await setStatus(task.id, 'done');
+
+    expect(await makeMonth(goalA.id)).toMatchObject({ progress: 33, taskCount: 3 });
+    expect(await makeMonth(goalA.id, '2026-12-01', '2026-12-31', '12월')).toMatchObject({
+      progress: 83,
+      taskCount: 2,
+    });
+    expect(await makeMonth(goalA.id, '2027-01-01', '2027-01-31', '1월')).toMatchObject({
+      progress: 0,
+      taskCount: 0,
+    });
+    expect(await makeMonth(goalB.id)).toMatchObject({ progress: 100, taskCount: 1 });
+
+    const url = `http://test/api?goalId=${goalA.id}`;
+    const list = await ok<Month[]>(await monthsGET(request('GET', undefined, url)));
+    expect(list.map((month) => [month.title, month.progress])).toEqual([
+      ['11월', 33],
+      ['12월', 83],
+      ['1월', 0],
+    ]);
+  });
+
+  it('수정하고 삭제할 수 있고 없는 ID는 404다', async () => {
+    const goal = await makeGoal();
+    const month = await makeMonth(goal.id);
+
+    const patched = await monthPATCH(
+      request('PATCH', { title: '수정', endDate: '2026-11-29' }),
+      ctx(month.id),
+    );
+    expect(await ok<Month>(patched)).toMatchObject({ title: '수정', endDate: '2026-11-29' });
+
+    const reversed = await monthPATCH(request('PATCH', { startDate: '2026-12-31' }), ctx(month.id));
+    expect(reversed.status).toBe(400);
+    const list = await ok<Month[]>(await monthsGET(request('GET')));
+    expect(list[0]).toMatchObject({ title: '수정', startDate: '2026-11-01' });
+
+    const missing = '0123456789abcdef01234567';
+    expect((await monthPATCH(request('PATCH', { title: 'x' }), ctx(missing))).status).toBe(404);
+    expect((await monthDELETE(request('DELETE'), ctx(missing))).status).toBe(404);
+    expect((await monthDELETE(request('DELETE'), ctx(month.id))).status).toBe(200);
+    expect(await ok<Month[]>(await monthsGET(request('GET')))).toEqual([]);
+  });
+
+  it('월간 계획이 있는 Schedule은 삭제가 막히고, 목록과 상세에 포함된다', async () => {
+    const goal = await makeGoal();
+    const month = await makeMonth(goal.id);
+
+    const [listed] = await ok<Goal[]>(await goalsGET());
+    expect(listed).toMatchObject({ weekCount: 0, monthCount: 1 });
+    const detail = await ok<GoalDetail>(await goalGET(request('GET'), ctx(goal.id)));
+    expect(detail.months.map((item) => item.id)).toEqual([month.id]);
+
+    const blocked = await goalDELETE(request('DELETE'), ctx(goal.id));
+    expect(blocked.status).toBe(409);
+    expect(await blocked.json()).toMatchObject({ childCount: 1, monthCount: 1, weekCount: 0 });
+
+    await monthDELETE(request('DELETE'), ctx(month.id));
+    expect((await goalDELETE(request('DELETE'), ctx(goal.id))).status).toBe(200);
   });
 });

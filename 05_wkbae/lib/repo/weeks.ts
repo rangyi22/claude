@@ -4,12 +4,7 @@ import { addDays, clampDate, daysBetween } from '../dates';
 import { AppError, notFound } from '../errors';
 import { calcProgress } from '../progress';
 import type { TaskStatus, Week, WeekDetail } from '../types';
-import {
-  carryOverSchema,
-  weekCreateSchema,
-  weekRangeSchema,
-  weekUpdateSchema,
-} from '../validation';
+import { carryOverSchema, weekCreateSchema, rangeSchema, weekUpdateSchema } from '../validation';
 import { missingParent, parseId, parseParentId } from './ids';
 import { groupByWeek, loadWeightedTasks, progressForGoals } from './progress';
 import { listTasks, nextOrder } from './tasks';
@@ -37,7 +32,7 @@ async function withProgress(docs: WeekDoc[]): Promise<Week[]> {
 export async function listWeeks(goalId?: string): Promise<Week[]> {
   const { weeks } = await collections();
   const filter = goalId
-    ? { userId: USER_ID, goalId: parseId(goalId, '목표') }
+    ? { userId: USER_ID, goalId: parseId(goalId, 'Schedule') }
     : { userId: USER_ID };
   return withProgress(await weeks.find(filter).sort({ startDate: 1 }).toArray());
 }
@@ -66,9 +61,9 @@ export async function getWeek(id: string): Promise<WeekDetail> {
 export async function createWeek(input: unknown): Promise<Week> {
   const { goals, weeks } = await collections();
   const { goalId, ...data } = weekCreateSchema.parse(input);
-  const parent = parseParentId(goalId, '목표');
+  const parent = parseParentId(goalId, 'Schedule');
   if (!(await goals.findOne({ _id: parent, userId: USER_ID }))) {
-    throw missingParent('목표');
+    throw missingParent('Schedule');
   }
   const doc: WeekDoc = {
     _id: new ObjectId(),
@@ -85,7 +80,7 @@ export async function updateWeek(id: string, input: unknown): Promise<Week> {
   const { tasks, weeks } = await collections();
   const current = await findWeek(id);
   const data = weekUpdateSchema.parse(input);
-  const range = weekRangeSchema.parse({
+  const range = rangeSchema.parse({
     startDate: data.startDate ?? current.startDate,
     endDate: data.endDate ?? current.endDate,
   });

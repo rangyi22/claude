@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { use, useCallback, useEffect, useState } from 'react';
 import { DeleteDialog, WeekForm } from '@/components/forms';
+import { MonthSection } from '@/components/MonthSection';
 import { ProgressBar } from '@/components/ProgressBar';
 import { api } from '@/lib/api';
 import type { GoalDetail, Week } from '@/lib/types';
@@ -44,14 +45,17 @@ export default function GoalPage({ params }: { params: Promise<{ id: string }> }
   return (
     <div className="flex flex-col gap-4">
       <Link href="/goals" className="text-sm text-indigo-700 hover:underline">
-        ← 목표 목록
+        ← Schedule 목록
       </Link>
       <div className="card flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">{goal.title}</h1>
           <span className="text-sm text-slate-500">{goal.year}년</span>
         </div>
-        <ProgressBar value={goal.progress} label="목표 진행률" />
+        <ProgressBar value={goal.progress} label="Schedule 진행률" />
+      </div>
+      <div className="card">
+        <MonthSection goalId={goal.id} months={goal.months} onChanged={load} />
       </div>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">주간 계획</h2>
