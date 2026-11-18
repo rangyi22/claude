@@ -6,16 +6,33 @@ import { api } from '@/lib/api';
 import { todayLocal } from '@/lib/dates';
 import { periodRange, PERIODS, type Period } from '@/lib/period';
 import { calcProgress } from '@/lib/progress';
-import type { Task } from '@/lib/types';
+import type { Task, Week } from '@/lib/types';
+import { DeleteDialog, TaskForm } from '@/components/forms';
 import { ProgressBar } from '@/components/ProgressBar';
 
 const STATUS_LABELS = { todo: '할 일', doing: '진행 중', done: '완료' };
+
+type Dialog = { kind: 'form'; task: Task } | { kind: 'delete'; task: Task } | null;
 
 export default function TasksPage() {
   const [period, setPeriod] = useState<Period>('day');
   const [date, setDate] = useState(todayLocal);
   const [tasks, setTasks] = useState<Task[] | null>(null);
+  const [weeks, setWeeks] = useState<Week[]>([]);
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    api<Week[]>('/api/weeks')
+      .then(setWeeks)
+      .catch((caught: Error) => setError(caught.message));
+  }, [reloadKey]);
+
+  function saved() {
+    setDialog(null);
+    setReloadKey((key) => key + 1);
+  }
 
   useEffect(() => {
     let stale = false;
@@ -32,7 +49,7 @@ export default function TasksPage() {
     return () => {
       stale = true;
     };
-  }, [period, date]);
+  }, [period, date, reloadKey]);
 
   const { from, to } = periodRange(period, date);
 
@@ -83,12 +100,40 @@ export default function TasksPage() {
             <Link href={`/weeks/${task.weekId}`} className="font-medium hover:underline">
               {task.title}
             </Link>
-            <span className="text-slate-500">
-              {task.date} · 가중치 {task.weight} · {STATUS_LABELS[task.status]}
+            <span className="flex items-center gap-3">
+              <span className="text-slate-500">
+                {task.date} · 가중치 {task.weight} · {STATUS_LABELS[task.status]}
+              </span>
+              <button className="btn" onClick={() => setDialog({ kind: 'form', task })}>
+                수정
+              </button>
+              <button className="btn-danger" onClick={() => setDialog({ kind: 'delete', task })}>
+                삭제
+              </button>
             </span>
           </li>
         ))}
       </ul>
+      {dialog?.kind === 'form' && (
+        <TaskForm
+          weekId={dialog.task.weekId}
+          defaultDate={dialog.task.date}
+          weeks={weeks}
+          task={dialog.task}
+          onClose={() => setDialog(null)}
+          onSaved={saved}
+        />
+      )}
+      {dialog?.kind === 'delete' && (
+        <DeleteDialog
+          label={dialog.task.title}
+          onClose={() => setDialog(null)}
+          onConfirm={async () => {
+            await api(`/api/tasks/${dialog.task.id}`, 'DELETE');
+            saved();
+          }}
+        />
+      )}
     </div>
   );
 }
