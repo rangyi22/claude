@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { GET as goalsGET, POST as goalsPOST } from '@/app/api/goals/route';
@@ -18,7 +19,7 @@ import {
   PATCH as weekPATCH,
 } from '@/app/api/weeks/[id]/route';
 import { POST as carryPOST } from '@/app/api/weeks/[id]/carry-over/route';
-import { closeDb, getDb } from '@/lib/db';
+import { closeDb, ensureCollections, getDb } from '@/lib/db';
 import type {
   Goal,
   GoalDetail,
@@ -84,6 +85,7 @@ async function weekDetail(id: string) {
 beforeAll(async () => {
   mongo = await MongoMemoryServer.create();
   process.env.MONGODB_URI = mongo.getUri();
+  delete process.env.MONGODB_DB;
 });
 
 afterAll(async () => {
@@ -519,5 +521,142 @@ describe('월간 계획', () => {
 
     await monthDELETE(request('DELETE'), ctx(month.id));
     expect((await goalDELETE(request('DELETE'), ctx(goal.id))).status).toBe(200);
+  });
+});
+
+describe('할 일의 설명·우선순위·생성 상태', () => {
+  async function weekWithGoal() {
+    const goal = await makeGoal();
+    return makeWeek(goal.id);
+  }
+
+  it('설명, 우선순위, 상태를 지정해 만들 수 있다', async () => {
+    const week = await weekWithGoal();
+    const created = await tasksPOST(
+      request('POST', {
+        weekId: week.id,
+        title: '새 일',
+        date: '2026-11-03',
+        weight: 2,
+        description: ' 메모 ',
+        priority: 'high',
+        status: 'doing',
+      }),
+    );
+    const { task } = await ok<TaskMutationResult>(created);
+    expect(task).toMatchObject({
+      description: '메모',
+      priority: 'high',
+      status: 'doing',
+      weight: 2,
+      order: 1,
+    });
+  });
+
+  it('AC 3: 생략하면 보통 우선순위, 빈 설명, 할 일 상태다', async () => {
+    const week = await weekWithGoal();
+    const created = await tasksPOST(
+      request('POST', { weekId: week.id, title: '기본', date: '2026-11-03' }),
+    );
+    const { task } = await ok<TaskMutationResult>(created);
+    expect(task).toMatchObject({ description: '', priority: 'medium', status: 'todo', weight: 1 });
+  });
+
+  it('완료 상태로 만들면 진행률에 바로 반영되고 그 컬럼 맨 뒤에 들어간다', async () => {
+    const week = await weekWithGoal();
+    await makeTask(week.id, 2);
+    const first = await tasksPOST(
+      request('POST', {
+        weekId: week.id,
+        title: 'a',
+        date: '2026-11-03',
+        weight: 3,
+        status: 'done',
+      }),
+    );
+    const second = await tasksPOST(
+      request('POST', {
+        weekId: week.id,
+        title: 'b',
+        date: '2026-11-03',
+        weight: 1,
+        status: 'done',
+      }),
+    );
+    const one = await ok<TaskMutationResult>(first);
+    const two = await ok<TaskMutationResult>(second);
+    expect(one.progress.weeks[week.id]).toBe(60);
+    expect(two.task.order).toBe(one.task.order + 1);
+  });
+
+  it.each([
+    ['우선순위', { priority: 'urgent' }],
+    ['상태', { status: 'archived' }],
+    ['설명 길이', { description: '가'.repeat(2001) }],
+    ['설명 형식', { description: 5 }],
+  ])('잘못된 %s는 400이고 만들지 않는다', async (_label, extra) => {
+    const week = await weekWithGoal();
+    const body = { weekId: week.id, title: '잘못', date: '2026-11-03', ...extra };
+    expect((await tasksPOST(request('POST', body))).status).toBe(400);
+    expect((await weekDetail(week.id)).tasks).toHaveLength(0);
+  });
+
+  it('수정으로 설명과 우선순위를 바꾸고, 잘못된 값은 400이다', async () => {
+    const week = await weekWithGoal();
+    const task = await makeTask(week.id);
+    const patched = await taskPATCH(
+      request('PATCH', { description: '바꾼 설명', priority: 'low' }),
+      ctx(task.id),
+    );
+    expect((await ok<TaskMutationResult>(patched)).task).toMatchObject({
+      description: '바꾼 설명',
+      priority: 'low',
+    });
+    const bad = await taskPATCH(request('PATCH', { priority: 'urgent' }), ctx(task.id));
+    expect(bad.status).toBe(400);
+    expect((await weekDetail(week.id)).tasks[0]).toMatchObject({ priority: 'low' });
+  });
+
+  it('설명·우선순위가 없는 예전 할 일도 기본값으로 읽힌다', async () => {
+    const week = await weekWithGoal();
+    const db = await getDb();
+    await db.collection('tasks').insertOne({
+      userId: 'local',
+      weekId: new ObjectId(week.id),
+      title: '옛 할 일',
+      date: '2026-11-03',
+      weight: 1,
+      status: 'todo',
+      order: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const url = `http://test/api?weekId=${week.id}`;
+    const tasks = await ok<Task[]>(await tasksGET(request('GET', undefined, url)));
+    expect(tasks[0]).toMatchObject({ title: '옛 할 일', description: '', priority: 'medium' });
+  });
+});
+
+describe('데이터베이스 준비', () => {
+  async function collectionNames() {
+    const db = await getDb();
+    const collections = await db.listCollections({}, { nameOnly: true }).toArray();
+    return collections.map((collection) => collection.name);
+  }
+
+  it('MONGODB_DB가 없으면 todoapp을 쓰고 컬렉션을 미리 만든다', async () => {
+    const db = await getDb();
+    expect(db.databaseName).toBe('todoapp');
+    expect(await collectionNames()).toEqual(
+      expect.arrayContaining(['goals', 'weeks', 'months', 'tasks']),
+    );
+  });
+
+  it('컬렉션이 지워져도 다시 만들고, 동시에 실행해도 오류가 없다', async () => {
+    const db = await getDb();
+    await db.collection('goals').drop();
+    expect(await collectionNames()).not.toContain('goals');
+    await Promise.all([ensureCollections(db), ensureCollections(db), ensureCollections(db)]);
+    expect(await collectionNames()).toContain('goals');
   });
 });

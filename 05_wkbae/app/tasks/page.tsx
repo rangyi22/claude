@@ -8,6 +8,7 @@ import { periodRange, PERIODS, type Period } from '@/lib/period';
 import { calcProgress } from '@/lib/progress';
 import { STATUS_LABELS, type Task, type Week } from '@/lib/types';
 import { DeleteDialog, TaskForm } from '@/components/forms';
+import { PriorityBadge } from '@/components/PriorityBadge';
 import { ProgressBar } from '@/components/ProgressBar';
 
 type Dialog = { kind: 'form'; task: Task } | { kind: 'delete'; task: Task } | null;
@@ -99,6 +100,7 @@ export default function TasksPage() {
               {task.title}
             </Link>
             <span className="flex items-center gap-3">
+              <PriorityBadge priority={task.priority} />
               <span className="text-slate-500">
                 {task.date} · 가중치 {task.weight} · {STATUS_LABELS[task.status]}
               </span>

@@ -19,9 +19,11 @@ Next.js App Router, TypeScript, Tailwind CSS, MongoDB 공식 드라이버, zod, 
 
 - 진행률은 저장하지 않는다. `lib/progress.ts`의 `calcProgress`로 조회 시 계산한다.
 - 모든 쿼리는 `userId: USER_ID`로 거른다.
+- 데이터베이스 이름 기본값은 `todoapp`이다(`MONGODB_DB`로 바꾼다). 연결할 때 컬렉션 4개와 인덱스를 미리 만들어 Atlas Data Explorer에 바로 보이게 하며, 수동으로는 `npm run db:init`을 쓴다. 연결 문자열의 비밀번호는 `.env.local`에만 둔다.
 - 날짜는 `YYYY-MM-DD` 문자열로 저장하고 비교한다.
 - 하위가 있는 목표·주간 계획은 삭제하지 않고 409를 반환한다.
-- 할 일 날짜는 연결된 주간 계획 기간 안이어야 한다.
+- 할 일 날짜는 연결된 주간 계획 기간 안이어야 한다. 화면에서는 이 날짜를 마감일이라 부른다(필드 이름은 `date`).
+- 할 일의 설명(`description`)과 우선순위(`priority`: high/medium/low)는 선택 입력이다. 이전에 만든 할 일에는 없으므로 읽을 때 기본값(빈 설명, 보통)으로 채운다. 우선순위는 표시용이고 진행률은 가중치로만 계산한다.
 - 화면에서는 1년 목표를 Schedule이라 부른다(코드·API·DB 이름은 goal 그대로).
 - 월간 계획은 Schedule에 직접 연결되며 주간 계획과 나란히 둔다. 진행률은 같은 Schedule의 할 일 중 기간 안에 날짜가 든 것으로 계산하고, 월간 계획이 있으면 Schedule 삭제는 막는다.
 - 카드 이동 저장은 `lib/moveQueue.ts`를 거친다. 처리 중에 받은 조회 응답은 화면에 반영하지 않는다.

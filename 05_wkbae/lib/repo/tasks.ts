@@ -15,6 +15,8 @@ export function toTask(doc: TaskDoc): Task {
     weight: doc.weight,
     status: doc.status,
     order: doc.order,
+    description: doc.description ?? '',
+    priority: doc.priority ?? 'medium',
   };
 }
 
@@ -72,8 +74,7 @@ export async function createTask(input: unknown): Promise<TaskMutationResult> {
     userId: USER_ID,
     weekId: parent,
     ...data,
-    status: 'todo',
-    order: await nextOrder(parent, 'todo'),
+    order: await nextOrder(parent, data.status),
     createdAt: now,
     updatedAt: now,
   };
