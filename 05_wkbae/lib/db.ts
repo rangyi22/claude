@@ -55,9 +55,35 @@ interface Connection {
 // 개발 서버 핫리로드 때 모듈이 다시 평가되어도 연결을 하나만 쓰도록 globalThis에 보관한다.
 const cache = globalThis as typeof globalThis & { __todoMongo?: Connection };
 
+export const DEFAULT_DB_NAME = 'todoapp';
+const COLLECTION_NAMES = ['goals', 'weeks', 'months', 'tasks'];
+const NAMESPACE_EXISTS = 48;
+
+/**
+ * MongoDB는 컬렉션이 만들어져야 데이터베이스가 보인다. 데이터가 없어도 Atlas Data Explorer에
+ * 데이터베이스와 컬렉션이 바로 나타나도록 미리 만든다. 여러 프로세스가 동시에 시작해도 안전하다.
+ */
+export async function ensureCollections(db: Db): Promise<void> {
+  const existing = new Set(
+    (await db.listCollections({}, { nameOnly: true }).toArray()).map(
+      (collection) => collection.name,
+    ),
+  );
+  await Promise.all(
+    COLLECTION_NAMES.filter((name) => !existing.has(name)).map(async (name) => {
+      try {
+        await db.createCollection(name);
+      } catch (error) {
+        if ((error as { code?: number }).code !== NAMESPACE_EXISTS) throw error;
+      }
+    }),
+  );
+}
+
 async function prepare(client: MongoClient): Promise<Db> {
   await client.connect();
-  const db = client.db(process.env.MONGODB_DB ?? 'todo_app');
+  const db = client.db(process.env.MONGODB_DB ?? DEFAULT_DB_NAME);
+  await ensureCollections(db);
   await Promise.all([
     db.collection('weeks').createIndex({ goalId: 1 }),
     db.collection('months').createIndex({ goalId: 1 }),

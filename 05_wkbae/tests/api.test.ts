@@ -19,7 +19,7 @@ import {
   PATCH as weekPATCH,
 } from '@/app/api/weeks/[id]/route';
 import { POST as carryPOST } from '@/app/api/weeks/[id]/carry-over/route';
-import { closeDb, getDb } from '@/lib/db';
+import { closeDb, ensureCollections, getDb } from '@/lib/db';
 import type {
   Goal,
   GoalDetail,
@@ -85,6 +85,7 @@ async function weekDetail(id: string) {
 beforeAll(async () => {
   mongo = await MongoMemoryServer.create();
   process.env.MONGODB_URI = mongo.getUri();
+  delete process.env.MONGODB_DB;
 });
 
 afterAll(async () => {
@@ -633,5 +634,29 @@ describe('할 일의 설명·우선순위·생성 상태', () => {
     const url = `http://test/api?weekId=${week.id}`;
     const tasks = await ok<Task[]>(await tasksGET(request('GET', undefined, url)));
     expect(tasks[0]).toMatchObject({ title: '옛 할 일', description: '', priority: 'medium' });
+  });
+});
+
+describe('데이터베이스 준비', () => {
+  async function collectionNames() {
+    const db = await getDb();
+    const collections = await db.listCollections({}, { nameOnly: true }).toArray();
+    return collections.map((collection) => collection.name);
+  }
+
+  it('MONGODB_DB가 없으면 todoapp을 쓰고 컬렉션을 미리 만든다', async () => {
+    const db = await getDb();
+    expect(db.databaseName).toBe('todoapp');
+    expect(await collectionNames()).toEqual(
+      expect.arrayContaining(['goals', 'weeks', 'months', 'tasks']),
+    );
+  });
+
+  it('컬렉션이 지워져도 다시 만들고, 동시에 실행해도 오류가 없다', async () => {
+    const db = await getDb();
+    await db.collection('goals').drop();
+    expect(await collectionNames()).not.toContain('goals');
+    await Promise.all([ensureCollections(db), ensureCollections(db), ensureCollections(db)]);
+    expect(await collectionNames()).toContain('goals');
   });
 });
