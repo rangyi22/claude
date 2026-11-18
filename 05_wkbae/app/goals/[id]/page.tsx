@@ -43,7 +43,7 @@ export default function GoalPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/" className="text-sm text-indigo-700 hover:underline">
+      <Link href="/goals" className="text-sm text-indigo-700 hover:underline">
         ← 목표 목록
       </Link>
       <div className="card flex flex-col gap-2">

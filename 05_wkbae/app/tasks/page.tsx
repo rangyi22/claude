@@ -6,11 +6,9 @@ import { api } from '@/lib/api';
 import { todayLocal } from '@/lib/dates';
 import { periodRange, PERIODS, type Period } from '@/lib/period';
 import { calcProgress } from '@/lib/progress';
-import type { Task, Week } from '@/lib/types';
+import { STATUS_LABELS, type Task, type Week } from '@/lib/types';
 import { DeleteDialog, TaskForm } from '@/components/forms';
 import { ProgressBar } from '@/components/ProgressBar';
-
-const STATUS_LABELS = { todo: '할 일', doing: '진행 중', done: '완료' };
 
 type Dialog = { kind: 'form'; task: Task } | { kind: 'delete'; task: Task } | null;
 
