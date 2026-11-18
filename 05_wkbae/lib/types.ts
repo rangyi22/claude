@@ -1,6 +1,12 @@
 export const TASK_STATUSES = ['todo', 'doing', 'done'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
+export const STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: '할 일',
+  doing: '진행 중',
+  done: '완료',
+};
+
 export interface Goal {
   id: string;
   title: string;

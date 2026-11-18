@@ -64,7 +64,7 @@ test('목표 → 주간 → 할 일을 화면에서 만들고 드래그하면 �
   page,
 }) => {
   const name = unique();
-  await page.goto('/');
+  await page.goto('/goals');
   await page.getByRole('button', { name: '새 목표' }).click();
   await page.getByLabel('제목').fill(`화면 목표 ${name}`);
   await page.getByRole('button', { name: '저장' }).click();
@@ -238,7 +238,7 @@ test('목표와 할 일을 수정하고, 하위가 있는 목표 삭제는 막�
   await page.getByRole('button', { name: '저장' }).click();
   await expect(card(page, '고친 일')).toBeVisible();
 
-  await page.goto('/');
+  await page.goto('/goals');
   const row = page.getByTestId('goal-card').filter({ hasText: goal.title });
   await row.getByRole('button', { name: '삭제' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '삭제' }).click();
@@ -355,4 +355,61 @@ test('주간 보드에서 주간 계획을 수정하고, 할 일이 있으면 �
   await page.getByRole('dialog').getByRole('button', { name: '삭제' }).click();
   await expect(page).toHaveURL(new RegExp(`/goals/${goal.id}$`));
   await expect(page.getByTestId('week-card')).toHaveCount(0);
+});
+
+test('할 일 관리 홈은 오늘의 할 일과 이번 주 계획을 보여 주고 목표 화면과 구분된다', async ({
+  page,
+}) => {
+  const name = unique();
+  const { goal, week, tasks } = await seed(page, [2, 3]);
+  await page.request.patch(`/api/tasks/${tasks[0].id}`, {
+    data: { title: `오늘일 ${name}`, status: 'done' },
+  });
+  await page.clock.setFixedTime(new Date('2026-11-03T12:00:00'));
+
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '할 일 관리', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '1년 목표' })).toHaveCount(0);
+  await expect(page.getByTestId('today-task').filter({ hasText: `오늘일 ${name}` })).toBeVisible();
+
+  const thisWeek = page.getByTestId('home-week').filter({ hasText: week.title });
+  await expect(thisWeek).toContainText(goal.title);
+  await expect(thisWeek.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '40');
+  await thisWeek.getByRole('link', { name: week.title }).click();
+  await expect(page).toHaveURL(new RegExp(`/weeks/${week.id}$`));
+});
+
+test('메뉴는 화면마다 다른 곳으로 이동하고 현재 위치를 표시한다', async ({ page }) => {
+  const nav = page.getByRole('navigation');
+  await page.goto('/');
+  await expect(nav.getByRole('link', { name: '할 일 관리' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(nav.getByRole('link', { name: '목표' })).not.toHaveAttribute('aria-current', 'page');
+
+  await nav.getByRole('link', { name: '목표' }).click();
+  await expect(page).toHaveURL(/\/goals$/);
+  await expect(page.getByRole('heading', { name: '1년 목표' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: '목표' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: '할 일 관리' })).not.toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  await nav.getByRole('link', { name: '할 일 관리' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: '할 일 관리', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '1년 목표' })).toHaveCount(0);
+});
+
+test('주간 보드는 목표 메뉴를 강조하고 목표 목록 링크가 /goals로 간다', async ({ page }) => {
+  const { goal } = await seed(page);
+  await page.goto(`/goals/${goal.id}`);
+  await expect(page.getByRole('navigation').getByRole('link', { name: '목표' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await page.getByRole('link', { name: '← 목표 목록' }).click();
+  await expect(page).toHaveURL(/\/goals$/);
 });
