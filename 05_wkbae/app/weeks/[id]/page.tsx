@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { Board } from '@/components/Board';
-import { DeleteDialog, TaskForm } from '@/components/forms';
+import { DeleteDialog, TaskForm, WeekForm } from '@/components/forms';
 import { Modal } from '@/components/Modal';
 import { ProgressBar } from '@/components/ProgressBar';
 import { api, ApiError } from '@/lib/api';
@@ -15,11 +16,14 @@ import type { CarryOverResult } from '@/lib/repo/weeks';
 type Dialog =
   | { kind: 'form'; task?: Task }
   | { kind: 'delete'; task: Task }
+  | { kind: 'editWeek' }
+  | { kind: 'deleteWeek' }
   | { kind: 'createNextWeek' }
   | null;
 
 export default function WeekPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [week, setWeek] = useState<WeekDetail | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [goalProgress, setGoalProgress] = useState(0);
@@ -153,10 +157,18 @@ export default function WeekPage({ params }: { params: Promise<{ id: string }> }
         ← {week.goalTitle}
       </Link>
       <div className="card flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">{week.title}</h1>
-          <span className="text-sm text-slate-500">
-            {week.startDate} ~ {week.endDate}
+          <span className="flex items-center gap-3">
+            <span className="text-sm text-slate-500">
+              {week.startDate} ~ {week.endDate}
+            </span>
+            <button className="btn" onClick={() => setDialog({ kind: 'editWeek' })}>
+              주간 계획 수정
+            </button>
+            <button className="btn-danger" onClick={() => setDialog({ kind: 'deleteWeek' })}>
+              주간 계획 삭제
+            </button>
           </span>
         </div>
         <div data-testid="week-progress" className="flex items-center gap-3">
@@ -213,6 +225,24 @@ export default function WeekPage({ params }: { params: Promise<{ id: string }> }
           onConfirm={async () => {
             await api(`/api/tasks/${dialog.task.id}`, 'DELETE');
             await saved();
+          }}
+        />
+      )}
+      {dialog?.kind === 'editWeek' && (
+        <WeekForm
+          goalId={week.goalId}
+          week={week}
+          onClose={() => setDialog(null)}
+          onSaved={saved}
+        />
+      )}
+      {dialog?.kind === 'deleteWeek' && (
+        <DeleteDialog
+          label={week.title}
+          onClose={() => setDialog(null)}
+          onConfirm={async () => {
+            await api(`/api/weeks/${id}`, 'DELETE');
+            router.push(`/goals/${week.goalId}`);
           }}
         />
       )}

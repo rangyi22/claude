@@ -302,3 +302,57 @@ test('기간 필터와 달성 현황이 보인다 (AC 16)', async ({ page }) => 
   await expect(page.getByRole('link', { name: new RegExp(goal.title) })).toBeVisible();
   await expect(page.getByRole('progressbar').first()).toBeVisible();
 });
+
+test('기간별 보기에서 할 일을 수정하고 삭제한다 (일일, 주간)', async ({ page }) => {
+  const name = unique();
+  const { tasks } = await seed(page, [2, 3]);
+  await page.request.patch(`/api/tasks/${tasks[0].id}`, { data: { title: `고칠일 ${name}` } });
+  await page.request.patch(`/api/tasks/${tasks[1].id}`, { data: { title: `지울일 ${name}` } });
+  function row(title: string) {
+    return page.getByTestId('period-task').filter({ hasText: title });
+  }
+
+  await page.goto('/tasks');
+  await page.getByLabel('기준 날짜').fill('2026-11-03');
+  await row(`고칠일 ${name}`).getByRole('button', { name: '수정' }).click();
+  await page.getByRole('dialog').getByLabel('제목').fill(`고친일 ${name}`);
+  await page.getByRole('dialog').getByRole('button', { name: '저장' }).click();
+  await expect(row(`고친일 ${name}`)).toBeVisible();
+  await expect(row(`고칠일 ${name}`)).toHaveCount(0);
+
+  await page.getByRole('button', { name: '주간', exact: true }).click();
+  await row(`지울일 ${name}`).getByRole('button', { name: '삭제' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '삭제' }).click();
+  await expect(row(`지울일 ${name}`)).toHaveCount(0);
+  await expect(row(`고친일 ${name}`)).toBeVisible();
+
+  await page.reload();
+  await page.getByLabel('기준 날짜').fill('2026-11-03');
+  await expect(row(`지울일 ${name}`)).toHaveCount(0);
+});
+
+test('주간 보드에서 주간 계획을 수정하고, 할 일이 있으면 삭제를 막는다 (AC 8)', async ({
+  page,
+}) => {
+  const name = unique();
+  const { goal, week, tasks } = await seed(page);
+  await page.goto(`/weeks/${week.id}`);
+
+  await page.getByRole('button', { name: '주간 계획 수정' }).click();
+  await page.getByRole('dialog').getByLabel('제목').fill(`고친주 ${name}`);
+  await page.getByRole('dialog').getByRole('button', { name: '저장' }).click();
+  await expect(page.getByRole('heading', { name: `고친주 ${name}` })).toBeVisible();
+
+  await page.getByRole('button', { name: '주간 계획 삭제' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '삭제' }).click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('할 일 2개');
+  await page.getByRole('button', { name: '취소' }).click();
+  await expect(page.getByRole('heading', { name: `고친주 ${name}` })).toBeVisible();
+
+  for (const task of tasks) await page.request.delete(`/api/tasks/${task.id}`);
+  await page.reload();
+  await page.getByRole('button', { name: '주간 계획 삭제' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '삭제' }).click();
+  await expect(page).toHaveURL(new RegExp(`/goals/${goal.id}$`));
+  await expect(page.getByTestId('week-card')).toHaveCount(0);
+});
