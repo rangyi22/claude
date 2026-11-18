@@ -1,17 +1,24 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { use, useCallback, useEffect, useState } from 'react';
-import { DeleteDialog, WeekForm } from '@/components/forms';
+import { DeleteDialog, GoalForm, WeekForm } from '@/components/forms';
 import { MonthSection } from '@/components/MonthSection';
 import { ProgressBar } from '@/components/ProgressBar';
 import { api } from '@/lib/api';
 import type { GoalDetail, Week } from '@/lib/types';
 
-type Dialog = { kind: 'form'; week?: Week } | { kind: 'delete'; week: Week } | null;
+type Dialog =
+  | { kind: 'form'; week?: Week }
+  | { kind: 'delete'; week: Week }
+  | { kind: 'editGoal' }
+  | { kind: 'deleteGoal' }
+  | null;
 
 export default function GoalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [goal, setGoal] = useState<GoalDetail | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState('');
@@ -47,16 +54,28 @@ export default function GoalPage({ params }: { params: Promise<{ id: string }> }
       <Link href="/goals" className="text-sm text-indigo-700 hover:underline">
         ← Schedule 목록
       </Link>
-      <div className="card flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{goal.title}</h1>
-          <span className="text-sm text-slate-500">{goal.year}년</span>
+
+      <h2 className="text-lg font-bold">연간 계획</h2>
+      <div className="card flex flex-col gap-2" data-testid="schedule-card">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="font-semibold">{goal.title}</h1>
+          <span className="text-sm text-slate-500">
+            {goal.year}년 · 월간 계획 {goal.monthCount}개 · 주간 계획 {goal.weekCount}개
+          </span>
         </div>
         <ProgressBar value={goal.progress} label="Schedule 진행률" />
+        <div className="flex justify-end gap-2">
+          <button className="btn" onClick={() => setDialog({ kind: 'editGoal' })}>
+            수정
+          </button>
+          <button className="btn-danger" onClick={() => setDialog({ kind: 'deleteGoal' })}>
+            삭제
+          </button>
+        </div>
       </div>
-      <div className="card">
-        <MonthSection goalId={goal.id} months={goal.months} onChanged={load} />
-      </div>
+
+      <MonthSection goalId={goal.id} months={goal.months} onChanged={load} variant="cards" />
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">주간 계획</h2>
         <button className="btn-primary" onClick={() => setDialog({ kind: 'form' })}>
@@ -102,6 +121,19 @@ export default function GoalPage({ params }: { params: Promise<{ id: string }> }
           onConfirm={async () => {
             await api(`/api/weeks/${dialog.week.id}`, 'DELETE');
             await saved();
+          }}
+        />
+      )}
+      {dialog?.kind === 'editGoal' && (
+        <GoalForm goal={goal} onClose={() => setDialog(null)} onSaved={saved} />
+      )}
+      {dialog?.kind === 'deleteGoal' && (
+        <DeleteDialog
+          label={goal.title}
+          onClose={() => setDialog(null)}
+          onConfirm={async () => {
+            await api(`/api/goals/${goal.id}`, 'DELETE');
+            router.push('/goals');
           }}
         />
       )}

@@ -13,14 +13,89 @@ interface MonthSectionProps {
   months: Month[];
   onChanged: () => void | Promise<void>;
   className?: string;
+  /** compact: 카드 안에 들어가는 작은 목록, cards: 주간 계획 목록처럼 카드 바깥에 항목별 카드 */
+  variant?: 'compact' | 'cards';
 }
 
-export function MonthSection({ goalId, months, onChanged, className }: MonthSectionProps) {
+export function MonthSection({
+  goalId,
+  months,
+  onChanged,
+  className,
+  variant = 'compact',
+}: MonthSectionProps) {
   const [dialog, setDialog] = useState<Dialog>(null);
 
   async function changed() {
     setDialog(null);
     await onChanged();
+  }
+
+  const dialogs = (
+    <>
+      {dialog?.kind === 'form' && (
+        <MonthForm
+          goalId={goalId}
+          month={dialog.month}
+          onClose={() => setDialog(null)}
+          onSaved={changed}
+        />
+      )}
+      {dialog?.kind === 'delete' && (
+        <DeleteDialog
+          label={dialog.month.title}
+          onClose={() => setDialog(null)}
+          onConfirm={async () => {
+            await api(`/api/months/${dialog.month.id}`, 'DELETE');
+            await changed();
+          }}
+        />
+      )}
+    </>
+  );
+
+  if (variant === 'cards') {
+    return (
+      <>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold">월간 계획</h2>
+          <button className="btn-primary" onClick={() => setDialog({ kind: 'form' })}>
+            새 월간 계획
+          </button>
+        </div>
+        {months.length === 0 && <p className="text-sm text-slate-600">월간 계획이 없습니다.</p>}
+        <ul className="flex flex-col gap-3">
+          {months.map((month) => (
+            <li key={month.id} className="card flex flex-col gap-2" data-testid="month-card">
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-semibold">{month.title}</span>
+                <span className="text-sm text-slate-500">
+                  {month.startDate} ~ {month.endDate} · 할 일 {month.taskCount}개
+                </span>
+              </div>
+              <ProgressBar value={month.progress} label={`${month.title} 진행률`} />
+              <div className="flex justify-end gap-2">
+                <button
+                  className="btn"
+                  aria-label={`${month.title} 수정`}
+                  onClick={() => setDialog({ kind: 'form', month })}
+                >
+                  수정
+                </button>
+                <button
+                  className="btn-danger"
+                  aria-label={`${month.title} 삭제`}
+                  onClick={() => setDialog({ kind: 'delete', month })}
+                >
+                  삭제
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {dialogs}
+      </>
+    );
   }
 
   return (
@@ -66,24 +141,7 @@ export function MonthSection({ goalId, months, onChanged, className }: MonthSect
           </li>
         ))}
       </ul>
-      {dialog?.kind === 'form' && (
-        <MonthForm
-          goalId={goalId}
-          month={dialog.month}
-          onClose={() => setDialog(null)}
-          onSaved={changed}
-        />
-      )}
-      {dialog?.kind === 'delete' && (
-        <DeleteDialog
-          label={dialog.month.title}
-          onClose={() => setDialog(null)}
-          onConfirm={async () => {
-            await api(`/api/months/${dialog.month.id}`, 'DELETE');
-            await changed();
-          }}
-        />
-      )}
+      {dialogs}
     </div>
   );
 }

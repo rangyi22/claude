@@ -561,19 +561,83 @@ test('Schedule 화면에서 월간 계획을 추가·수정·삭제하고 기간
   await expect(section.getByText('월간 계획이 없습니다.')).toBeVisible();
 });
 
-test('Schedule 상세에서도 월간 계획을 추가한다', async ({ page }) => {
+test('Schedule 상세는 월간 계획을 주간 계획처럼 카드 바깥에 같은 글꼴로 보여 준다', async ({
+  page,
+}) => {
   const name = unique();
   const { goal } = await seed(page);
   await page.goto(`/goals/${goal.id}`);
-  await page.getByRole('button', { name: '월간 계획 추가' }).click();
+
+  async function font(target: Locator) {
+    return target.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return `${style.fontSize}/${style.fontWeight}`;
+    });
+  }
+  const insideCard =
+    'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " card ")]';
+
+  await page.getByRole('button', { name: '새 월간 계획' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('제목').fill(`상세달 ${name}`);
   await dialog.getByLabel('시작일').fill('2026-11-01');
   await dialog.getByLabel('종료일').fill('2026-11-30');
   await dialog.getByRole('button', { name: '저장' }).click();
-  const added = page.getByTestId('goal-month').filter({ hasText: `상세달 ${name}` });
+  const added = page.getByTestId('month-card').filter({ hasText: `상세달 ${name}` });
+  await expect(added).toContainText('2026-11-01 ~ 2026-11-30');
   await expect(added).toContainText('할 일 2개');
   await expect(added.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+
+  const monthHeading = page.getByRole('heading', { name: '월간 계획', level: 2 });
+  const weekHeading = page.getByRole('heading', { name: '주간 계획', level: 2 });
+  await expect(monthHeading.locator(insideCard)).toHaveCount(0);
+  await expect(added.locator(insideCard)).toHaveCount(0);
+  expect(await font(monthHeading)).toBe(await font(weekHeading));
+  const weekTitle = page.getByTestId('week-card').first().locator('.font-semibold').first();
+  expect(await font(added.locator('.font-semibold').first())).toBe(await font(weekTitle));
+
+  await added.getByRole('button', { name: `상세달 ${name} 수정` }).click();
+  await dialog.getByLabel('제목').fill(`고친상세달 ${name}`);
+  await dialog.getByRole('button', { name: '저장' }).click();
+  const edited = page.getByTestId('month-card').filter({ hasText: `고친상세달 ${name}` });
+  await expect(edited).toBeVisible();
+
+  await edited.getByRole('button', { name: `고친상세달 ${name} 삭제` }).click();
+  await dialog.getByRole('button', { name: '삭제' }).click();
+  await expect(page.getByTestId('month-card')).toHaveCount(0);
+  await expect(page.getByText('월간 계획이 없습니다.')).toBeVisible();
+});
+
+test('Schedule 상세의 연간 계획 카드에서 수정하고, 하위가 있으면 삭제를 막는다', async ({
+  page,
+}) => {
+  const name = unique();
+  const { goal, week, tasks } = await seed(page);
+  await page.goto(`/goals/${goal.id}`);
+  await expect(page.getByRole('heading', { name: '연간 계획', level: 2 })).toBeVisible();
+  const schedule = page.getByTestId('schedule-card');
+  const dialog = page.getByRole('dialog');
+  await expect(schedule).toContainText('2026년 · 월간 계획 0개 · 주간 계획 1개');
+
+  await schedule.getByRole('button', { name: '수정' }).click();
+  await dialog.getByLabel('제목').fill(`고친일정 ${name}`);
+  await dialog.getByRole('button', { name: '저장' }).click();
+  await expect(page.getByRole('heading', { name: `고친일정 ${name}`, level: 1 })).toBeVisible();
+
+  await schedule.getByRole('button', { name: '삭제' }).click();
+  await dialog.getByRole('button', { name: '삭제' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('주간 계획 1개');
+  await dialog.getByRole('button', { name: '취소' }).click();
+
+  for (const task of tasks) await page.request.delete(`/api/tasks/${task.id}`);
+  await page.request.delete(`/api/weeks/${week.id}`);
+  await page.reload();
+  await schedule.getByRole('button', { name: '삭제' }).click();
+  await dialog.getByRole('button', { name: '삭제' }).click();
+  await expect(page).toHaveURL(/\/goals$/);
+  await expect(page.getByTestId('goal-card').filter({ hasText: `고친일정 ${name}` })).toHaveCount(
+    0,
+  );
 });
 
 test('할 일 관리 홈의 새 할 일 폼으로 모든 항목을 입력해 할 일을 만든다', async ({ page }) => {
