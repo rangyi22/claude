@@ -2,21 +2,32 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { DeleteDialog, GoalForm } from '@/components/forms';
+import { DeleteDialog, GoalForm, WeekForm } from '@/components/forms';
 import { ProgressBar } from '@/components/ProgressBar';
 import { api } from '@/lib/api';
-import type { Goal } from '@/lib/types';
+import type { Goal, Week } from '@/lib/types';
 
-type Dialog = { kind: 'form'; goal?: Goal } | { kind: 'delete'; goal: Goal } | null;
+type Dialog =
+  | { kind: 'goal'; goal?: Goal }
+  | { kind: 'deleteGoal'; goal: Goal }
+  | { kind: 'week'; goalId: string; week?: Week }
+  | { kind: 'deleteWeek'; week: Week }
+  | null;
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  const [weeks, setWeeks] = useState<Week[]>([]);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     try {
-      setGoals(await api<Goal[]>('/api/goals'));
+      const [goalList, weekList] = await Promise.all([
+        api<Goal[]>('/api/goals'),
+        api<Week[]>('/api/weeks'),
+      ]);
+      setGoals(goalList);
+      setWeeks(weekList);
     } catch (caught) {
       setError((caught as Error).message);
     }
@@ -35,7 +46,7 @@ export default function GoalsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">1년 목표</h1>
-        <button className="btn-primary" onClick={() => setDialog({ kind: 'form' })}>
+        <button className="btn-primary" onClick={() => setDialog({ kind: 'goal' })}>
           새 목표
         </button>
       </div>
@@ -46,37 +57,117 @@ export default function GoalsPage() {
       )}
       {goals?.length === 0 && <p className="text-sm text-slate-600">첫 목표를 만들어 보세요.</p>}
       <ul className="flex flex-col gap-3">
-        {goals?.map((goal) => (
-          <li key={goal.id} className="card flex flex-col gap-2" data-testid="goal-card">
-            <div className="flex items-center justify-between gap-4">
-              <Link href={`/goals/${goal.id}`} className="font-semibold hover:underline">
-                {goal.title}
-              </Link>
-              <span className="text-sm text-slate-500">
-                {goal.year}년 · 주간 계획 {goal.weekCount}개
-              </span>
-            </div>
-            <ProgressBar value={goal.progress} label={`${goal.title} 진행률`} />
-            <div className="flex justify-end gap-2">
-              <button className="btn" onClick={() => setDialog({ kind: 'form', goal })}>
-                수정
-              </button>
-              <button className="btn-danger" onClick={() => setDialog({ kind: 'delete', goal })}>
-                삭제
-              </button>
-            </div>
-          </li>
-        ))}
+        {goals?.map((goal) => {
+          const goalWeeks = weeks.filter((week) => week.goalId === goal.id);
+          return (
+            <li key={goal.id} className="card flex flex-col gap-3" data-testid="goal-card">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <Link href={`/goals/${goal.id}`} className="font-semibold hover:underline">
+                    {goal.title}
+                  </Link>
+                  <span className="flex items-center gap-3">
+                    <span className="text-sm text-slate-500">
+                      {goal.year}년 · 주간 계획 {goal.weekCount}개
+                    </span>
+                    <button className="btn" onClick={() => setDialog({ kind: 'goal', goal })}>
+                      수정
+                    </button>
+                    <button
+                      className="btn-danger"
+                      onClick={() => setDialog({ kind: 'deleteGoal', goal })}
+                    >
+                      삭제
+                    </button>
+                  </span>
+                </div>
+                <ProgressBar value={goal.progress} label={`${goal.title} 진행률`} />
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-slate-200 pt-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-slate-700">주간 계획</h2>
+                  <button
+                    className="btn"
+                    onClick={() => setDialog({ kind: 'week', goalId: goal.id })}
+                  >
+                    주간 계획 추가
+                  </button>
+                </div>
+                {goalWeeks.length === 0 && (
+                  <p className="text-sm text-slate-600">주간 계획이 없습니다.</p>
+                )}
+                <ul className="flex flex-col gap-2">
+                  {goalWeeks.map((week) => (
+                    <li
+                      key={week.id}
+                      data-testid="goal-week"
+                      className="flex flex-col gap-1 rounded-md bg-slate-50 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <Link
+                          href={`/weeks/${week.id}`}
+                          className="text-sm font-medium hover:underline"
+                        >
+                          {week.title}
+                        </Link>
+                        <span className="flex items-center gap-3">
+                          <span className="text-xs text-slate-500">
+                            {week.startDate} ~ {week.endDate} ·{' '}
+                            <span className="whitespace-nowrap">할 일 {week.taskCount}개</span>
+                          </span>
+                          <button
+                            className="btn"
+                            aria-label={`${week.title} 수정`}
+                            onClick={() => setDialog({ kind: 'week', goalId: goal.id, week })}
+                          >
+                            수정
+                          </button>
+                          <button
+                            className="btn-danger"
+                            aria-label={`${week.title} 삭제`}
+                            onClick={() => setDialog({ kind: 'deleteWeek', week })}
+                          >
+                            삭제
+                          </button>
+                        </span>
+                      </div>
+                      <ProgressBar value={week.progress} label={`${week.title} 진행률`} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </li>
+          );
+        })}
       </ul>
-      {dialog?.kind === 'form' && (
+      {dialog?.kind === 'goal' && (
         <GoalForm goal={dialog.goal} onClose={() => setDialog(null)} onSaved={saved} />
       )}
-      {dialog?.kind === 'delete' && (
+      {dialog?.kind === 'deleteGoal' && (
         <DeleteDialog
           label={dialog.goal.title}
           onClose={() => setDialog(null)}
           onConfirm={async () => {
             await api(`/api/goals/${dialog.goal.id}`, 'DELETE');
+            await saved();
+          }}
+        />
+      )}
+      {dialog?.kind === 'week' && (
+        <WeekForm
+          goalId={dialog.goalId}
+          week={dialog.week}
+          onClose={() => setDialog(null)}
+          onSaved={saved}
+        />
+      )}
+      {dialog?.kind === 'deleteWeek' && (
+        <DeleteDialog
+          label={dialog.week.title}
+          onClose={() => setDialog(null)}
+          onConfirm={async () => {
+            await api(`/api/weeks/${dialog.week.id}`, 'DELETE');
             await saved();
           }}
         />
