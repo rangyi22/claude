@@ -172,13 +172,13 @@ export default function WeekPage({ params }: { params: Promise<{ id: string }> }
           </span>
         </div>
         <div data-testid="week-progress" className="flex items-center gap-3">
-          <span className="w-20 text-sm text-slate-600">주간 진행률</span>
+          <span className="w-28 text-sm text-slate-600">주간 진행률</span>
           <div className="flex-1">
             <ProgressBar value={calcProgress(tasks)} label="주간 진행률" />
           </div>
         </div>
         <div data-testid="goal-progress" className="flex items-center gap-3">
-          <span className="w-20 text-sm text-slate-600">Schedule 진행률</span>
+          <span className="w-28 text-sm text-slate-600">Schedule 진행률</span>
           <div className="flex-1">
             <ProgressBar value={goalProgress} label="Schedule 진행률" />
           </div>

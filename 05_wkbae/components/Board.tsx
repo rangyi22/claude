@@ -14,6 +14,7 @@ import {
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
 import type { Task, TaskStatus } from '@/lib/types';
+import { PriorityBadge } from './PriorityBadge';
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: '할 일' },
@@ -58,7 +59,13 @@ function Card({ task, onEdit, onDelete }: CardProps) {
         isDragging ? 'relative z-10 opacity-80 shadow-lg' : ''
       }`}
     >
-      <p className="text-sm font-medium">{task.title}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium">{task.title}</p>
+        <PriorityBadge priority={task.priority} />
+      </div>
+      {task.description && (
+        <p className="mt-1 line-clamp-2 text-xs text-slate-500">{task.description}</p>
+      )}
       <div className="mt-2 flex items-center justify-between text-sm text-slate-500">
         <span>
           {task.date} · 가중치 {task.weight}

@@ -268,7 +268,7 @@ test('삭제 차단과 기간 위반 사유가 화면에 보인다 (AC 8, 11, 12
 
   await page.goto(`/weeks/${week.id}`);
   await card(page, '일 1').getByRole('button', { name: '수정' }).click();
-  await page.getByLabel('날짜').fill('2026-12-25');
+  await page.getByLabel('마감일').fill('2026-12-25');
   await page.getByRole('button', { name: '저장' }).click();
   await expect(alert(page)).toContainText('기간');
 });
@@ -574,4 +574,93 @@ test('Schedule 상세에서도 월간 계획을 추가한다', async ({ page }) 
   const added = page.getByTestId('goal-month').filter({ hasText: `상세달 ${name}` });
   await expect(added).toContainText('할 일 2개');
   await expect(added.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+});
+
+test('할 일 관리 홈의 새 할 일 폼으로 모든 항목을 입력해 할 일을 만든다', async ({ page }) => {
+  const name = unique();
+  const { week } = await seed(page, [2, 3]);
+  await page.clock.setFixedTime(new Date('2026-11-03T12:00:00'));
+  await page.goto('/');
+  await page.getByRole('button', { name: '새 할 일' }).click();
+  const dialog = page.getByRole('dialog');
+
+  await dialog.getByLabel('제목').fill(`홈할일 ${name}`);
+  await dialog.getByLabel('설명').fill('자세한 메모');
+  await dialog.getByLabel('우선순위').selectOption('high');
+  await dialog.getByLabel('상태').selectOption('done');
+  await dialog.getByLabel('가중치').selectOption('3');
+  await expect(dialog.getByLabel('마감일')).toHaveValue('2026-11-03');
+  await dialog
+    .getByLabel('주간 계획')
+    .selectOption({ label: `${week.title} (2026-11-02 ~ 2026-11-08)` });
+  await expect(dialog.getByTestId('week-impact')).toContainText('0% → 38%');
+  await dialog.getByRole('button', { name: '저장' }).click();
+
+  await expect(page.getByRole('status')).toContainText('할 일을 추가했습니다.');
+  const row = page.getByTestId('today-task').filter({ hasText: `홈할일 ${name}` });
+  await expect(row).toContainText('높음');
+  await expect(row).toContainText('완료');
+
+  const response = await page.request.get(`/api/tasks?weekId=${week.id}`);
+  const saved: { title: string }[] = await response.json();
+  expect(saved.find((task) => task.title === `홈할일 ${name}`)).toMatchObject({
+    description: '자세한 메모',
+    priority: 'high',
+    status: 'done',
+    weight: 3,
+    date: '2026-11-03',
+    weekId: week.id,
+  });
+});
+
+test('새 할 일 폼에서 마감일과 주간 계획이 서로 연동된다', async ({ page }) => {
+  const { goal, week } = await seed(page);
+  const created = await page.request.post('/api/weeks', {
+    data: {
+      goalId: goal.id,
+      title: `다음주 ${unique()}`,
+      startDate: '2026-11-09',
+      endDate: '2026-11-15',
+    },
+  });
+  const nextWeek = await created.json();
+  await page.clock.setFixedTime(new Date('2026-11-03T12:00:00'));
+  await page.goto('/');
+  await page.getByRole('button', { name: '새 할 일' }).click();
+  const dialog = page.getByRole('dialog');
+
+  await dialog.getByLabel('주간 계획').selectOption(week.id);
+  await dialog.getByLabel('마감일').fill('2026-11-10');
+  await expect(dialog.getByLabel('주간 계획')).toHaveValue(nextWeek.id);
+
+  await dialog.getByLabel('주간 계획').selectOption(week.id);
+  await expect(dialog.getByLabel('마감일')).toHaveValue('2026-11-08');
+
+  await dialog.getByLabel('마감일').fill('2027-03-01');
+  await expect(dialog.getByText('기간(2026-11-02 ~ 2026-11-08) 밖입니다')).toBeVisible();
+});
+
+test('주간 계획이 없으면 새 할 일 폼이 안내만 보여 주고 저장할 수 없다', async ({ page }) => {
+  await page.route('**/api/weeks', (route) => route.fulfill({ json: [] }));
+  await page.goto('/');
+  await page.getByRole('button', { name: '새 할 일' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('연결할 주간 계획이 없습니다.');
+  await expect(dialog.getByRole('button', { name: '저장' })).toBeDisabled();
+});
+
+test('보드에서 할 일을 수정하면 우선순위·설명·상태가 카드에 반영된다', async ({ page }) => {
+  const { week } = await seed(page);
+  await page.goto(`/weeks/${week.id}`);
+  await card(page, '일 1').getByRole('button', { name: '수정' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('우선순위').selectOption('high');
+  await dialog.getByLabel('설명').fill('꼭 끝낼 것');
+  await dialog.getByLabel('상태').selectOption('doing');
+  await dialog.getByRole('button', { name: '저장' }).click();
+
+  await expect(column(page, 'doing')).toContainText('일 1');
+  await expect(card(page, '일 1')).toContainText('높음');
+  await expect(card(page, '일 1')).toContainText('꼭 끝낼 것');
+  await expect(card(page, '일 2')).toContainText('보통');
 });

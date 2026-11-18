@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { TaskForm } from '@/components/forms';
+import { PriorityBadge } from '@/components/PriorityBadge';
 import { ProgressBar } from '@/components/ProgressBar';
 import { api } from '@/lib/api';
 import { todayLocal } from '@/lib/dates';
@@ -12,6 +14,7 @@ import { STATUS_LABELS, TASK_STATUSES, type Goal, type Task, type Week } from '@
 interface Overview {
   today: string;
   goals: Goal[];
+  allWeeks: Week[];
   weeks: Week[];
   tasks: Task[];
 }
@@ -19,26 +22,40 @@ interface Overview {
 export default function HomePage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState('');
 
   // 오늘 날짜는 브라우저 시계로 구하므로, 서버 렌더링 결과와 어긋나지 않게 마운트 뒤에 계산한다.
-  useEffect(() => {
-    const today = todayLocal();
-    const { from, to } = periodRange('week', today);
-    Promise.all([
-      api<Goal[]>('/api/goals'),
-      api<Week[]>('/api/weeks'),
-      api<Task[]>(`/api/tasks?from=${today}&to=${today}`),
-    ])
-      .then(([goals, allWeeks, tasks]) =>
-        setOverview({
-          today,
-          goals,
-          tasks,
-          weeks: allWeeks.filter((week) => week.startDate <= to && week.endDate >= from),
-        }),
-      )
-      .catch((caught: Error) => setError(caught.message));
+  const load = useCallback(async () => {
+    try {
+      const today = todayLocal();
+      const { from, to } = periodRange('week', today);
+      const [goals, allWeeks, tasks] = await Promise.all([
+        api<Goal[]>('/api/goals'),
+        api<Week[]>('/api/weeks'),
+        api<Task[]>(`/api/tasks?from=${today}&to=${today}`),
+      ]);
+      setOverview({
+        today,
+        goals,
+        tasks,
+        allWeeks,
+        weeks: allWeeks.filter((week) => week.startDate <= to && week.endDate >= from),
+      });
+    } catch (caught) {
+      setError((caught as Error).message);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function saved() {
+    setCreating(false);
+    setNotice('할 일을 추가했습니다.');
+    await load();
+  }
 
   if (error) {
     return (
@@ -49,17 +66,38 @@ export default function HomePage() {
   }
   if (!overview) return <p className="text-sm text-slate-600">불러오는 중…</p>;
 
-  const { today, goals, weeks, tasks } = overview;
+  const { today, goals, allWeeks, weeks, tasks } = overview;
+  const defaultWeek =
+    allWeeks.find((week) => week.startDate <= today && today <= week.endDate) ??
+    weeks[0] ??
+    allWeeks[0];
   const goalTitle = new Map(goals.map((goal) => [goal.id, goal.title]));
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">할 일 관리</h1>
-        <p className="text-sm text-slate-600">
-          오늘 {today} · 오늘 할 일 {tasks.length}개
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold">할 일 관리</h1>
+          <p className="text-sm text-slate-600">
+            오늘 {today} · 오늘 할 일 {tasks.length}개
+          </p>
+        </div>
+        <button
+          className="btn-primary"
+          onClick={() => {
+            setNotice('');
+            setCreating(true);
+          }}
+        >
+          새 할 일
+        </button>
       </div>
+
+      {notice && (
+        <p role="status" className="rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-800">
+          {notice}
+        </p>
+      )}
 
       {goals.length === 0 && (
         <div className="card flex items-center justify-between gap-4">
@@ -95,8 +133,11 @@ export default function HomePage() {
                 <Link href={`/weeks/${task.weekId}`} className="font-medium hover:underline">
                   {task.title}
                 </Link>
-                <span className="text-slate-500">
-                  가중치 {task.weight} · {STATUS_LABELS[task.status]}
+                <span className="flex items-center gap-3">
+                  <PriorityBadge priority={task.priority} />
+                  <span className="text-slate-500">
+                    가중치 {task.weight} · {STATUS_LABELS[task.status]}
+                  </span>
                 </span>
               </li>
             ))}
@@ -132,6 +173,15 @@ export default function HomePage() {
           </ul>
         </section>
       </div>
+      {creating && (
+        <TaskForm
+          weekId={defaultWeek?.id ?? ''}
+          defaultDate={today}
+          weeks={allWeeks}
+          onClose={() => setCreating(false)}
+          onSaved={saved}
+        />
+      )}
     </div>
   );
 }

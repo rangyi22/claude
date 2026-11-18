@@ -6,12 +6,21 @@ interface ModalProps {
   title: string;
   submitLabel: string;
   danger?: boolean;
+  submitDisabled?: boolean;
   onClose: () => void;
   onSubmit: (data: FormData) => Promise<void>;
   children: ReactNode;
 }
 
-export function Modal({ title, submitLabel, danger, onClose, onSubmit, children }: ModalProps) {
+export function Modal({
+  title,
+  submitLabel,
+  danger,
+  submitDisabled,
+  onClose,
+  onSubmit,
+  children,
+}: ModalProps) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -34,7 +43,7 @@ export function Modal({ title, submitLabel, danger, onClose, onSubmit, children 
         aria-modal="true"
         aria-label={title}
         onSubmit={handleSubmit}
-        className="flex w-full max-w-md flex-col gap-4 rounded-lg bg-white p-6 shadow-lg"
+        className="flex max-h-full w-full max-w-md flex-col gap-4 overflow-y-auto rounded-lg bg-white p-6 shadow-lg"
       >
         <h2 className="text-lg font-bold">{title}</h2>
         {children}
@@ -47,7 +56,11 @@ export function Modal({ title, submitLabel, danger, onClose, onSubmit, children 
           <button type="button" className="btn" onClick={onClose}>
             취소
           </button>
-          <button type="submit" className={danger ? 'btn-danger' : 'btn-primary'} disabled={busy}>
+          <button
+            type="submit"
+            className={danger ? 'btn-danger' : 'btn-primary'}
+            disabled={busy || submitDisabled}
+          >
             {submitLabel}
           </button>
         </div>

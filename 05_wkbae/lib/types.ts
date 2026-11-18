@@ -1,6 +1,15 @@
 export const TASK_STATUSES = ['todo', 'doing', 'done'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
+export const TASK_PRIORITIES = ['high', 'medium', 'low'] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+export const PRIORITY_LABELS: Record<TaskPriority, string> = {
+  high: '높음',
+  medium: '보통',
+  low: '낮음',
+};
+
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: '할 일',
   doing: '진행 중',
@@ -44,6 +53,8 @@ export interface Task {
   weight: number;
   status: TaskStatus;
   order: number;
+  description: string;
+  priority: TaskPriority;
 }
 
 export interface WeekDetail extends Week {

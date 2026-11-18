@@ -1,5 +1,5 @@
 import { Db, MongoClient, type ObjectId } from 'mongodb';
-import type { TaskStatus } from './types';
+import type { TaskPriority, TaskStatus } from './types';
 
 export const USER_ID = 'local';
 
@@ -40,6 +40,9 @@ export interface TaskDoc {
   weight: number;
   status: TaskStatus;
   order: number;
+  /** 설명과 우선순위는 나중에 추가된 필드라, 이전에 만든 할 일에는 없을 수 있다. */
+  description?: string;
+  priority?: TaskPriority;
   createdAt: Date;
   updatedAt: Date;
 }
