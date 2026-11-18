@@ -178,9 +178,9 @@ export default function WeekPage({ params }: { params: Promise<{ id: string }> }
           </div>
         </div>
         <div data-testid="goal-progress" className="flex items-center gap-3">
-          <span className="w-20 text-sm text-slate-600">목표 진행률</span>
+          <span className="w-20 text-sm text-slate-600">Schedule 진행률</span>
           <div className="flex-1">
-            <ProgressBar value={goalProgress} label="목표 진행률" />
+            <ProgressBar value={goalProgress} label="Schedule 진행률" />
           </div>
         </div>
       </div>

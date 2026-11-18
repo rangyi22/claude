@@ -13,9 +13,20 @@ export interface Goal {
   year: number;
   progress: number;
   weekCount: number;
+  monthCount: number;
 }
 
 export interface Week {
+  id: string;
+  goalId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  progress: number;
+  taskCount: number;
+}
+
+export interface Month {
   id: string;
   goalId: string;
   title: string;
@@ -43,6 +54,7 @@ export interface WeekDetail extends Week {
 
 export interface GoalDetail extends Goal {
   weeks: Week[];
+  months: Month[];
 }
 
 export interface ProgressSnapshot {

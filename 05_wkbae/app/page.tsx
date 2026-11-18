@@ -64,10 +64,10 @@ export default function HomePage() {
       {goals.length === 0 && (
         <div className="card flex items-center justify-between gap-4">
           <p className="text-sm">
-            아직 목표가 없습니다. 1년 목표를 만들고 주간 계획과 할 일을 연결해 보세요.
+            아직 Schedule이 없습니다. Schedule을 만들고 주간·월간 계획과 할 일을 연결해 보세요.
           </p>
           <Link href="/goals" className="btn-primary whitespace-nowrap">
-            목표 만들기
+            Schedule 만들기
           </Link>
         </div>
       )}
@@ -109,7 +109,7 @@ export default function HomePage() {
             <p className="text-sm text-slate-600">
               이번 주 계획이 없습니다.{' '}
               <Link href="/goals" className="text-indigo-700 hover:underline">
-                목표에서 주간 계획을 만들어 보세요.
+                Schedule에서 주간 계획을 만들어 보세요.
               </Link>
             </p>
           )}

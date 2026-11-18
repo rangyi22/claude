@@ -12,7 +12,8 @@ const weight = z
   .max(5, '가중치는 1~5 정수여야 합니다.');
 const year = z.number('연도를 입력하세요.').int().min(1970).max(9999);
 
-const GOAL_REQUIRED = '주간 계획은 1년 목표에 연결해야 합니다.';
+const GOAL_REQUIRED = '주간 계획은 Schedule에 연결해야 합니다.';
+const MONTH_REQUIRED = '월간 계획은 Schedule에 연결해야 합니다.';
 const WEEK_REQUIRED = '할 일은 주간 계획에 연결해야 합니다.';
 
 const startBeforeEnd = {
@@ -40,9 +41,24 @@ export const weekUpdateSchema = z.strictObject({
   endDate: date.optional(),
 });
 
-export const weekRangeSchema = z
+export const rangeSchema = z
   .object({ startDate: date, endDate: date })
   .refine((week) => week.startDate <= week.endDate, startBeforeEnd);
+
+export const monthCreateSchema = z
+  .strictObject({
+    goalId: z.string(MONTH_REQUIRED).min(1, MONTH_REQUIRED),
+    title,
+    startDate: date,
+    endDate: date,
+  })
+  .refine((month) => month.startDate <= month.endDate, startBeforeEnd);
+
+export const monthUpdateSchema = z.strictObject({
+  title: title.optional(),
+  startDate: date.optional(),
+  endDate: date.optional(),
+});
 
 export const taskCreateSchema = z.strictObject({
   weekId: z.string(WEEK_REQUIRED).min(1, WEEK_REQUIRED),

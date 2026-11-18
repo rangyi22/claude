@@ -5,7 +5,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: '할 일 관리',
-  description: '일일 할 일을 주간 계획과 1년 목표에 연결해 관리합니다.',
+  description: '일일 할 일을 주간·월간 계획과 Schedule에 연결해 관리합니다.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
