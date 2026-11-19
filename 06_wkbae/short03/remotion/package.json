@@ -1,0 +1,21 @@
+{
+  "name": "md2short-remotion",
+  "version": "1.2.0",
+  "private": true,
+  "description": "MD2Short TechExplainer 9:16 Remotion composition",
+  "scripts": {
+    "render": "remotion render src/index.ts TechExplainer",
+    "studio": "remotion studio src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.539",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.539"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

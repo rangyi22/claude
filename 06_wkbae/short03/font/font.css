@@ -1,0 +1,22 @@
+/*
+ * MD2Short font aliases (architecture.md §2.3).
+ * Remotion loads this file via staticFile("font/font.css").
+ * SeoulAlrim / SeoulNotice currently alias the placeholder Noto Sans KR
+ * variable font. To use the real Seoul fonts, drop the font files into
+ * font/ and change only the src url() lines below.
+ */
+@font-face {
+  font-family: "SeoulAlrim";
+  src: url("NotoSansKR-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "SeoulNotice";
+  src: url("NotoSansKR-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
