@@ -491,6 +491,8 @@ uv run md2short run <markdown_file> \
 | `--visual-mode` | `emoticon` | `emoticon` (호랑이 PNG, deterministic) 또는 `photo` (gpt-image-2, OPENAI_API_KEY 필요) |
 | `--model` | `gpt-5-mini` | OpenAI Responses API 대본 생성 모델 |
 | `--output`, `-o` | `output/ret.mp4` | final MP4 사본 경로. 빈 문자열이면 비활성화 |
+| `--opening` / `--no-opening` | `--opening` | `JobConfig.show_opening`. 날짜 오프닝(spoken 문구 + `OpeningBriefing` visual + caption suppression)을 함께 켜고 끔 (§5.10) |
+| `--outro` / `--no-outro` | `--no-outro` | `JobConfig.show_outro`. 마지막 2.6s 구독 CTA `Outro` overlay 표시 여부 (§5.10) |
 
 ### 6.2 잡 상태 조회
 
@@ -511,7 +513,11 @@ uv run md2short clean --older-than 7d --dry-run
 
 ### 6.4 종료 코드
 
-`0` 성공, `1` CLI 입력 검증 실패·필수 env 누락 등 사용자 입력 오류, `2` `run_job()` 실행 중 예외(외부 API/render/QC 등 모두 포함).
+| 코드 | 의미 |
+| --- | --- |
+| `0` | 성공 (`run`은 terminal status `qc_passed`일 때만) |
+| `1` | CLI 입력 검증 실패·필수 env 누락 등 사용자 입력 오류 (`--lang`/`--chunk-size`/`--engine`/`--visual-mode`/`--speed`/`--bg` 위반, 입력 파일 없음, `ELEVENLABS_API_KEY` 누락, photo 모드 `OPENAI_API_KEY` 누락, `status`의 없는 job, `clean`의 잘못된 `--older-than`) |
+| `2` | `run_job()` 실행 중 예외(외부 API/render 등 모두 포함, `status.json`은 `failed`) **또는** terminal status `qc_failed` |
 
 ---
 
