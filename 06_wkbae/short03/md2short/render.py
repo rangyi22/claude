@@ -234,6 +234,7 @@ def build_render_command(output_path: Path | str, props_path: Path | str) -> lis
         str(output_path),
         f"--props={props_path}",
         "--codec=h264",
+        "--audio-bitrate=192k",  # 음성 위주 — 기본 320k 는 과함
         f"--width={VIDEO_WIDTH}",
         f"--height={VIDEO_HEIGHT}",
         "--log=warn",

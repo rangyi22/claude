@@ -11,11 +11,18 @@ export const DEFAULT_CHUNK_SIZE = 14;
 export const MAX_CHUNK_SIZE = 24;
 
 const CAPTION_HOLD_MS = 800;
-const MAX_FONT_SIZE = 72;
-const MIN_FONT_SIZE = 34;
+// Near-fixed size: long segments wrap to a 3rd line instead of shrinking.
+const MAX_FONT_SIZE = 68;
+const MIN_FONT_SIZE = 56;
 const TEXT_WIDTH = 1000;
-const MAX_LINES = 2;
+const MAX_LINES = 3;
+// Captions hug the top of the bottom bar (just under the image) so they stay
+// above the Shorts/Reels title + channel overlay near the screen bottom.
+const CAPTION_TOP_PADDING = 36;
+const UNSPOKEN_OPACITY = 0.8;
 const HIGHLIGHT_COLOR = "#FFD600";
+const DOWN_HIGHLIGHT_COLOR = "#FF5A5A";
+const DOWN_KEYWORD_RE = /하락|급락|폭락|추락|감소|약세|매도|손절|부진|적자/;
 
 type CaptionToken = { text: string; start: number | null; end: number | null };
 
@@ -106,8 +113,10 @@ const buildChunks = (
 
 const normalize = (text: string) => text.replace(/[\s.,!?。！？…"'“”‘’()[\]{}:;~·-]/g, "");
 
-// One yellow keyword per chunk: the longest keyword that appears in a token.
-const pickHighlightIndex = (tokens: CaptionToken[], keywords: string[]): number => {
+type Highlight = { index: number; keyword: string } | null;
+
+// One keyword per chunk: the longest keyword that appears in a token.
+const pickHighlight = (tokens: CaptionToken[], keywords: string[]): Highlight => {
   const sorted = [...keywords]
     .map(normalize)
     .filter((k) => k.length > 0)
@@ -115,10 +124,27 @@ const pickHighlightIndex = (tokens: CaptionToken[], keywords: string[]): number 
   for (const keyword of sorted) {
     const idx = tokens.findIndex((t) => normalize(t.text).includes(keyword));
     if (idx >= 0) {
-      return idx;
+      return { index: idx, keyword };
     }
   }
-  return -1;
+  return null;
+};
+
+// Colors only the keyword inside the token ("상승이라는" -> "상승" + "이라는"),
+// so particles/endings stay white. Decline keywords use red, others yellow.
+const HighlightedText: React.FC<{ text: string; keyword: string }> = ({ text, keyword }) => {
+  const color = DOWN_KEYWORD_RE.test(keyword) ? DOWN_HIGHLIGHT_COLOR : HIGHLIGHT_COLOR;
+  const at = text.indexOf(keyword);
+  if (at < 0) {
+    return <span style={{ color }}>{text}</span>;
+  }
+  return (
+    <>
+      {text.slice(0, at)}
+      <span style={{ color }}>{keyword}</span>
+      {text.slice(at + keyword.length)}
+    </>
+  );
 };
 
 const fontSizeFor = (tokens: CaptionToken[]): number => {
@@ -151,7 +177,7 @@ export const Captions: React.FC<{
   }
 
   const fontSize = fontSizeFor(active.tokens);
-  const highlightIdx = pickHighlightIndex(active.tokens, highlightKeywords);
+  const highlight = pickHighlight(active.tokens, highlightKeywords);
   const lineHeight = 1.3;
 
   return (
@@ -162,8 +188,10 @@ export const Captions: React.FC<{
         bottom: 0,
         width: WIDTH,
         height: BOTTOM_BAR_HEIGHT,
+        boxSizing: "border-box",
+        paddingTop: CAPTION_TOP_PADDING,
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
       }}
     >
@@ -196,19 +224,22 @@ export const Captions: React.FC<{
                 extrapolateRight: "clamp",
               })
             : 1;
-          const color = i === highlightIdx ? HIGHLIGHT_COLOR : "#FFFFFF";
           return (
             <span
               key={`${i}-${token.text}`}
               style={{
                 display: "inline-block",
-                color,
-                opacity: spoken ? 1 : 0.55,
+                color: "#FFFFFF",
+                opacity: spoken ? 1 : UNSPOKEN_OPACITY,
                 transform: `scale(${scale})`,
                 textShadow: "0 4px 10px rgba(0,0,0,0.6)",
               }}
             >
-              {token.text}
+              {highlight && i === highlight.index ? (
+                <HighlightedText text={token.text} keyword={highlight.keyword} />
+              ) : (
+                token.text
+              )}
             </span>
           );
         })}

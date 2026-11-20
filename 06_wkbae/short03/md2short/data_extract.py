@@ -26,6 +26,25 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 
+_DOWN_RE = re.compile(r"하락|급락|폭락|추락|감소|약세|내렸|내린|떨어")
+_UP_RE = re.compile(r"상승|급등|폭등|증가|강세|올랐|오른|뛰었")
+
+
+def _tone(script_text: str, start: int, end: int) -> str:
+    """숫자가 속한 문장 안의 등락 단어로 카드 색 톤 결정 ("down" | "up" | "neutral")."""
+    raw = script_text[start:end].lstrip()
+    if raw[:1] in "-−":
+        return "down"
+    if raw[:1] == "+":
+        return "up"
+    sentence_end = re.search(r"[.!?\n]", script_text[end:])
+    rest = script_text[end : end + sentence_end.start() if sentence_end else len(script_text)]
+    down, up = _DOWN_RE.search(rest), _UP_RE.search(rest)
+    if down and (not up or down.start() < up.start()):
+        return "down"
+    return "up" if up else "neutral"
+
+
 def _normalize(kind: str, raw: str) -> str:
     text = re.sub(r"\s+", " ", raw.strip())
     if kind == "percent":
@@ -40,7 +59,7 @@ def plan_number_cards(
     cooldown_ms: int = DEFAULT_COOLDOWN_MS,
     duration_ms: int = DEFAULT_DURATION_MS,
 ) -> list[dict[str, Any]]:
-    """script_text -> [{"text", "startMs", "durationMs"}] (시간순)."""
+    """script_text -> [{"text", "startMs", "durationMs", "tone"}] (시간순)."""
     total = len(script_text)
     if total == 0 or audio_duration_ms <= 0 or max_cards <= 0:
         return []
@@ -59,11 +78,18 @@ def plan_number_cards(
     duration = min(duration_ms, audio_duration_ms)
     latest_start = max(0, audio_duration_ms - duration)
     cards: list[dict[str, Any]] = []
-    for start_char, _end, _prio, text in kept:
+    for start_char, end_char, _prio, text in kept:
         if len(cards) >= max_cards:
             break
         start_ms = min(int(start_char / total * audio_duration_ms), latest_start)
         if cards and start_ms - cards[-1]["startMs"] < cooldown_ms:
             continue
-        cards.append({"text": text, "startMs": start_ms, "durationMs": duration})
+        cards.append(
+            {
+                "text": text,
+                "startMs": start_ms,
+                "durationMs": duration,
+                "tone": _tone(script_text, start_char, end_char),
+            }
+        )
     return cards

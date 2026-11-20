@@ -42,7 +42,20 @@ def test_proportional_mapping_and_defaults():
     text = "가" * 50 + " 3.2% " + "나" * 44  # '3' at char 51 of 100
     cards = plan_number_cards(text, 10000)
     assert len(text) == 100
-    assert cards == [{"text": "3.2%", "startMs": 5100, "durationMs": 1800}]
+    assert cards == [{"text": "3.2%", "startMs": 5100, "durationMs": 1800, "tone": "neutral"}]
+
+
+def test_tone_from_sentence_direction():
+    cards = plan_number_cards(SAMPLE, 60000, cooldown_ms=0)
+    assert [(c["text"], c["tone"]) for c in cards] == [
+        ("S&P 500 종가 7,230", "neutral"),
+        ("0.94%", "up"),
+        ("3.2%", "up"),
+        ("8%", "up"),
+        ("18%", "down"),
+    ]
+    signed = plan_number_cards("A는 -2.1% 기록, B는 +4% 기록.", 20000, cooldown_ms=0)
+    assert [c["tone"] for c in signed] == ["down", "up"]
 
 
 def test_cooldown_2500():

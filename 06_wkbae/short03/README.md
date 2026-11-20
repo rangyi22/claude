@@ -56,7 +56,7 @@ uv run md2short run sample.md
 | `--chunk-size` | `14` | 자막 segment 최대 단어 수 안전 상한 (1~24) |
 | `--bg` | `0xFFFFFF` | 가운데 메인 섹션 배경색 |
 | `--model` | `gpt-5-mini` | 대본 생성 모델 |
-| `--no-opening` / `--outro` | opening on / outro off | 날짜 오프닝, 마지막 구독 CTA |
+| `--no-opening` / `--no-outro` | opening on / outro on | 날짜 오프닝, 마지막 구독 CTA + 투자 면책 문구 |
 | `--output`, `-o` | `output/ret.mp4` | 최종 사본 경로 |
 
 스토리보드 입력은 `### 1컷` 헤딩 아래 `- 자막: ...`, `- 화면 연출: ...`, `- 이미지 프롬프트: ...` 형식으로 작성한다. `자막`만 내레이션에 사용된다.

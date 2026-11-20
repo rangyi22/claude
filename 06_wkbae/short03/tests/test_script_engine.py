@@ -42,7 +42,7 @@ def test_structured_request_shape_and_success(tmp_path):
     assert "나스닥 0.94% 상승" in user
     assert s["plan"] == {"engine": "openai", "fallback_reason": None, "model": "gpt-5-mini"}
     assert s["full_text"].startswith("5월 2일 데이브리핑입니다. 미국 증시가 올랐습니다.")
-    assert s["opening"]["visual"] == "26년 5월 2일\n데이브리핑"
+    assert s["opening"]["visual"] == "2026년 5월 2일\n데이브리핑"
     assert (tmp_path / "logs" / "openai_script_raw.json").exists()
     assert not (tmp_path / "logs" / "fallback.json").exists()
 

@@ -19,7 +19,7 @@ const defaultProps: CueProps = {
   openingDurationMs: 0,
   showOpening: false,
   ctaText: "🐯 구독 + 알람",
-  showOutro: false,
+  showOutro: true,
   durationInFrames: 900,
 };
 

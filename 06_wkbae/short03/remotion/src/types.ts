@@ -46,6 +46,7 @@ export type NumberCard = {
   text: string;
   startMs: number;
   durationMs: number;
+  tone?: "up" | "down" | "neutral"; // down => red card (same rule as captions)
 };
 
 export type CueProps = {

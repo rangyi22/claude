@@ -1,6 +1,6 @@
 import React from "react";
 import { Img, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { CONTENT_HEIGHT, CONTENT_TOP, FONT_DISPLAY } from "./layout";
+import { CONTENT_HEIGHT, CONTENT_TOP } from "./layout";
 import { msToFrames } from "./time";
 import type { CompanyLogoCue } from "./types";
 
@@ -23,8 +23,10 @@ const Logo: React.FC<{ cue: CompanyLogoCue }> = ({ cue }) => {
         transform: `scale(${pop})`,
       }}
     >
+      {/* Logo only: the logo image already carries the name, so no duplicate label. */}
       <Img
         src={staticFile(cue.logoFileName)}
+        alt={cue.name}
         style={{
           width: LOGO_SIZE,
           height: LOGO_SIZE,
@@ -34,21 +36,6 @@ const Logo: React.FC<{ cue: CompanyLogoCue }> = ({ cue }) => {
           boxShadow: "0 8px 20px rgba(0,0,0,0.35)",
         }}
       />
-      <div
-        style={{
-          marginTop: 10,
-          fontFamily: FONT_DISPLAY,
-          fontWeight: 800,
-          fontSize: 38,
-          color: "#111111",
-          backgroundColor: "#FFFFFF",
-          padding: "2px 16px",
-          borderRadius: 12,
-          whiteSpace: "nowrap",
-        }}
-      >
-        {cue.name}
-      </div>
     </div>
   );
 };

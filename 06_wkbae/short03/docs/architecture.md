@@ -126,15 +126,15 @@
 | 파일 | 책임 |
 | --- | --- |
 | `Root.tsx` | 1080×1920, 30fps, default props, `calculateMetadata`로 duration override |
-| `TechExplainer.tsx` | 전체 합성 루트: Background + Audio + VisualLayer + NumberCards + Header + BottomBar + Captions + OpeningBriefing/Outro. `showOpening` props 로 opening visual/caption suppression 계약을 동기화하고, `showOutro`는 기본 비활성화 |
+| `TechExplainer.tsx` | 전체 합성 루트: Background + Audio + VisualLayer + NumberCards + Header + BottomBar + Captions + OpeningBriefing/Outro. `showOpening` props 로 opening visual/caption suppression 계약을 동기화하고, `showOutro`는 기본 활성화 |
 | `BrandHeader.tsx` | 상단 470px 검은 띠 = safe margin 250px + logo 220px (`img/header_logo.png`) |
 | `BottomBar.tsx` | 하단 460px 검은 자막 띠 |
-| `Captions.tsx` | `words.json` 기반 **문장 단위** chunk reveal (구두점·gap≥600ms boundary), 최대 2줄 자동 배치, 장문 폰트 축소, 활성 단어 pop scale, chunk당 1개 노란 keyword 강조. `captionSegments`가 있으면 visual cue와 같은 boundary로 chunk를 고정함. `chunkSize` prop 은 caption chunk 최대 단어 수 안전 상한(default 14, max 24) |
-| `VisualLayer.tsx` | cue별 `<Sequence>`, 완만한 Ken Burns zoom in/out. emoticon 모드(`emoticon/*.png`)는 정사각 contain, photo 모드(`jobs/<id>/photos/seg_NN_<hash>.png`)는 safe content rectangle cover/crop |
+| `Captions.tsx` | `words.json` 기반 **문장 단위** chunk reveal (구두점·gap≥600ms boundary), 하단 띠 상단(이미지 바로 아래)에 정렬해 Shorts/Reels 하단 UI 가림을 피함, 폰트 56~68px 거의 고정(최대 3줄), 어절 단위 줄바꿈(`keep-all`), 활성 단어 pop scale, chunk당 1개 keyword 강조 — keyword 부분 문자열만 색칠(조사 제외), 하락 계열은 빨강·그 외 노랑. `captionSegments`가 있으면 visual cue와 같은 boundary로 chunk를 고정함. `chunkSize` prop 은 caption chunk 최대 단어 수 안전 상한(default 14, max 24) |
+| `VisualLayer.tsx` | cue별 `<Sequence>`, 완만한 Ken Burns zoom in/out, 다음 cue와 6프레임 crossfade(빈 화면 없음), emoticon 은 `mix-blend-mode: multiply`로 PNG의 off-white 배경 제거. emoticon 모드(`emoticon/*.png`)는 정사각 contain, photo 모드(`jobs/<id>/photos/seg_NN_<hash>.png`)는 safe content rectangle cover/crop |
 | `Emoticons.tsx` | legacy emoticon renderer 파일. 신규 합성 루트는 `VisualLayer.tsx` 사용 |
-| `NumberCard.tsx` | 숫자 sticker card 1.8s pop-in + tilt |
+| `NumberCard.tsx` | 숫자 sticker card 1.8s pop-in + tilt. `tone=down`이면 빨간 카드, 그 외 노란 카드 |
 | `OpeningBriefing.tsx` | `showOpening`이 true일 때 "X월 X일 데이브리핑입니다" 큰 가운데 박스 표시 |
-| `Outro.tsx` | `showOutro`가 true일 때만 마지막 2.6s full-screen 구독 CTA overlay 표시. 기본값은 false |
+| `Outro.tsx` | `showOutro`가 true일 때 마지막 2.6s full-screen 구독 CTA + 투자 면책 문구 overlay 표시. 기본값은 true |
 | `types.ts` | `Word`, `WordsDoc`, `EmoticonCue`(`assetKind`/`visualMode` 포함), `NumberCard`, `CueProps` |
 
 Remotion assets는 `render_remotion()`이 다음을 보장함.
@@ -209,7 +209,7 @@ Job ID는 `sf_<YYYYMMDD>_<6 hex>` 형식이다. 예: `sf_20260502_abc123`. 모�
     "engine": "remotion",
     "visual_mode": "emoticon",
     "show_opening": true,
-    "show_outro": false
+    "show_outro": true
   },
   "started_at": "2026-05-02T00:00:00+00:00",
   "markdown_input": "/abs/path/sample.md",
@@ -239,7 +239,7 @@ class JobConfig(BaseModel):
     engine: Literal["remotion"] = "remotion"       # ffmpeg 렌더 엔진 미지원
     visual_mode: Literal["emoticon", "photo"] = "emoticon"  # photo 는 OPENAI_API_KEY 필요
     show_opening: bool = True
-    show_outro: bool = False
+    show_outro: bool = True
 ```
 
 `DEFAULT_VOICES`/`CTA_TEXT`/`SCRIBE_LANG` 모두 ko 단일 키만 노출 (v1.1 락). 다국어 부활은 v2 범위 — `script_engine.SYSTEM_PROMPT`, opening 템플릿, voice 매핑, multi-prompt 분기까지 함께 설계해야 함.
@@ -273,11 +273,11 @@ class JobConfig(BaseModel):
   "companyLogoCues": [],
   "numberCards": [],
   "highlightKeywords": [],
-  "openingText": "26년 5월 2일\n데이브리핑",
+  "openingText": "2026년 5월 2일\n데이브리핑",
   "openingDurationMs": 2800,
   "showOpening": true,
   "ctaText": "<CTA_TEXT[language]>",
-  "showOutro": false,
+  "showOutro": true,
   "durationInFrames": 900
 }
 ```
@@ -336,6 +336,7 @@ remotion/public/jobs/<job_id>/
 - **한국어 락**: 영문 문장·한자·일본어 출력 금지. 종목·지수·약어(S&P500, AMD, AI 등)만 원문 표기 허용. `_looks_korean()` 가드(`_FOREIGN_SCRIPT_RE` + 한글 비율 0.55 임계)가 위반 시 `fallback_extract`로 강등.
 - system prompt는 user markdown을 `<user_content>` 안의 데이터로만 취급하라고 명시 (인젝션 방어).
 - 응답은 Structured Outputs JSON schema(`hook`, `body`, `cta`)로 강제.
+- 훅 규칙: hook 첫 문장은 원문에서 가장 강한 수치·사실로 시작하고(원문 첫 줄 그대로 옮기기 금지), hook 사실을 body 에서 같은 표현으로 반복하지 않는다. 종목·지수 하나당 한 문장(여러 등락을 한 문장에 묶지 않음) — 문장 단위 자막·이모티콘 cue 가 각 종목에 맞게 나뉘도록.
 - 실패하거나 `OPENAI_API_KEY`가 없으면 markdown stripping 기반 텍스트 추출 fallback.
 - `### N컷` 스토리보드 입력이면 OpenAI 대본 생성을 우회하고 각 컷의 `자막`만 연결해 TTS 내레이션을 만든다. `화면 연출`은 emoticon cue 선택, `이미지 프롬프트`는 photo 모드 이미지 생성에만 사용되어 자막/내레이션에 섞이지 않는다.
 - 출력: `inputs/script.md`, `inputs/script.json` (`plan.engine` ∈ {`openai`, `fallback_extract`, `storyboard`, `empty`}, `plan.fallback_reason` 으로 강등 사유 추적).
@@ -361,7 +362,7 @@ remotion/public/jobs/<job_id>/
 
 ### 5.4 [F-05] 자막·cue plan 생성
 
-- Remotion에 `words.json`을 그대로 전달하고, `Captions.tsx` 가 **문장 단위**로 자막을 분할 표시함. 단어 끝 구두점(`.!?。！？…`) 또는 단어 간 시간 gap≥600ms 가 boundary. 화면 배치는 최대 2줄이며, 한 문장이 길어 2줄에도 넘치면 폰트 크기를 줄임. `chunkSize` prop 은 한 문장이 비정상적으로 길 때의 max words/chunk 안전 상한(default 14, max 24).
+- Remotion에 `words.json`을 그대로 전달하고, `Captions.tsx` 가 **문장 단위**로 자막을 분할 표시함. 단어 끝 구두점(`.!?。！？…`) 또는 단어 간 시간 gap≥600ms 가 boundary. 화면 배치는 최대 3줄, 폰트 56~68px로 거의 고정하며 장문은 축소 대신 줄을 늘림. `chunkSize` prop 은 한 문장이 비정상적으로 길 때의 max words/chunk 안전 상한(default 14, max 24).
 - 자막 burn-in/overlay는 Remotion 단독 책임이다. ffmpeg caption PNG/overlay 렌더 경로는 CLI/schema/pipeline/render에서 지원하지 않는다.
 - `emoticon_map.plan_cues()`가 words.json을 문장형 visual span으로 나누고 span별 keyword/fallback 기반 호랑이 cue를 생성함 (visual_mode=emoticon).
 - `photo_engine.plan_photo_cues()`가 `caption_plan`의 Remotion 동일 자막 segment 분할을 사용해 segment별 1장 실사 PNG cue를 생성함 (visual_mode=photo).
@@ -379,7 +380,7 @@ remotion/public/jobs/<job_id>/
 
 ```bash
 npx remotion render src/index.ts TechExplainer <output_path> \
-  --props=<props_path> --codec=h264 --width=1080 --height=1920 \
+  --props=<props_path> --codec=h264 --audio-bitrate=192k --width=1080 --height=1920 \
   --log=warn --overwrite
 ```
 
@@ -430,7 +431,10 @@ npx remotion render src/index.ts TechExplainer <output_path> \
 - planner 규칙:
   - `fill_gaps=True` 기본 경로: words.json을 문장형 visual span으로 나눠 span마다 cue 1개 생성
   - span 전체 텍스트에서 가장 구체적인 keyword match를 scoring해 선택
-  - keyword가 없으면 fallback category → neutral default 순으로 deterministic image 선택
+  - **사실 주장 가드** (`CLAIM_TOKENS`): 그림에 구체적 사실이 적힌 컷(예: `49_반도체18연속상승`, `46_사상최고치`, `21_소비심리추락`)은 해당 토큰(`18연속`, `최고치`, `소비심리` …)이 span 원문에 있을 때만 사용
+  - **중복 최소화**: 아직 안 쓴 keyword 매칭 > 안 쓴 fallback(카테고리 → 중립) > 직전과 다른 keyword 재사용 > fallback 순. 각 span 의 1순위 keyword 파일은 앞 span 의 fallback 이 먼저 가져가지 않도록 예약
+  - 하락 강도 구분: `소폭 하락` → 관망 컷, `하락` → 울음 컷, `급락` → 전량매도 컷. 하락 fallback pool 은 가격 외 '감소·부진'에도 걸리므로 혼란/당황 컷 우선(투자 손실 컷 제외). 상승 fallback pool 에는 사상최고치 컷을 넣지 않음
+  - `lead_in_ms`(파이프라인은 `openingDurationMs` 전달)가 있으면 첫 cue 를 그 시점부터 시작해 opening 직후 빈 화면 제거
   - `fill_gaps=True`는 기본 cue 수 제한 없음 — 긴 영상도 words.json segment 끝까지 이미지/자막 boundary 생성
   - boundary-crossing keyword lookahead 2 words
   - `fill_gaps=False` sparse 경로에서는 기존 cooldown/gap/duration 규칙과 기본 max cues 24 유지
@@ -447,13 +451,14 @@ npx remotion render src/index.ts TechExplainer <output_path> \
   - `코스피|코스닥|S&P 500|나스닥|다우|니케이|항셍` + 숫자
 - char position을 audio duration에 비례 매핑.
 - 기본 max 6개, cooldown 2.5초, duration 1.8초.
+- `tone`: 숫자 앞 부호(`-`/`+`) 또는 같은 문장 안 등락 단어(하락·급락·감소… / 상승·급등·증가…)로 `down`/`up`/`neutral` 결정. Remotion은 `down`을 빨간 카드로 렌더.
 
 ### 5.10 [F-11] Opening / Outro CTA 계약 동기화
 
 - `JobConfig.show_opening`은 script generation, Remotion props, caption suppression, `OpeningBriefing` 호출을 함께 제어함. `show_outro`는 마지막 `Outro` overlay 표시 여부만 제어함.
-- `show_opening=True`이면 spoken opening 문구를 TTS 대본 앞에 붙이고, `openingText`에는 2줄 opening visual 문구(`26년 M월 D일\n데이브리핑`)를 전달함. 실제 `words.json` 매칭으로 계산한 `openingDurationMs` 동안 opening visual을 표시하며, 하단 자막은 해당 구간의 단어를 caption 대상에서 제외함.
+- `show_opening=True`이면 spoken opening 문구를 TTS 대본 앞에 붙이고, `openingText`에는 2줄 opening visual 문구(`2026년 M월 D일\n데이브리핑`)를 전달함. 실제 `words.json` 매칭으로 계산한 `openingDurationMs` 동안 opening visual을 표시하며, 하단 자막은 해당 구간의 단어를 caption 대상에서 제외함.
 - `show_opening=False`이면 opening 문구를 대본에 붙이지 않고 Remotion caption suppression도 0ms 로 전달함.
-- `show_outro=False`가 기본값이므로 마지막 2.6s full-screen `🐯 구독 + 알람` overlay는 표시하지 않음. `show_outro=True`를 명시적으로 전달한 경우에만 `Outro` overlay가 표시됨.
+- `show_outro=True`가 기본값이므로 마지막 2.6s full-screen `🐯 구독 + 알람` + 투자 면책 문구(`본 영상은 정보 제공 목적이며 투자 권유가 아닙니다.`) overlay를 표시함. 영상 길이는 오디오 길이 그대로이며(QC ±100ms), overlay는 마지막 문장 위에 겹침. `--no-outro`로 끔.
 
 ### 5.11 [F-12] 결과물 경로 고정 + 잡 디버깅
 
@@ -492,7 +497,7 @@ uv run md2short run <markdown_file> \
 | `--model` | `gpt-5-mini` | OpenAI Responses API 대본 생성 모델 |
 | `--output`, `-o` | `output/ret.mp4` | final MP4 사본 경로. 빈 문자열이면 비활성화 |
 | `--opening` / `--no-opening` | `--opening` | `JobConfig.show_opening`. 날짜 오프닝(spoken 문구 + `OpeningBriefing` visual + caption suppression)을 함께 켜고 끔 (§5.10) |
-| `--outro` / `--no-outro` | `--no-outro` | `JobConfig.show_outro`. 마지막 2.6s 구독 CTA `Outro` overlay 표시 여부 (§5.10) |
+| `--outro` / `--no-outro` | `--outro` | `JobConfig.show_outro`. 마지막 2.6s 구독 CTA + 면책 문구 `Outro` overlay 표시 여부 (§5.10) |
 
 ### 6.2 잡 상태 조회
 

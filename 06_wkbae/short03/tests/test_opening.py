@@ -9,13 +9,13 @@ def test_ko_only():
 
 def test_build_opening():
     o = build_opening(date(2026, 5, 2))
-    assert o == {"spoken": "5월 2일 데이브리핑입니다.", "visual": "26년 5월 2일\n데이브리핑"}
+    assert o == {"spoken": "5월 2일 데이브리핑입니다.", "visual": "2026년 5월 2일\n데이브리핑"}
 
 
 def test_double_digit():
     o = build_opening(date(2026, 11, 20))
     assert o["spoken"] == "11월 20일 데이브리핑입니다."
-    assert o["visual"] == "26년 11월 20일\n데이브리핑"
+    assert o["visual"] == "2026년 11월 20일\n데이브리핑"
 
 
 def test_opening_duration_from_words():

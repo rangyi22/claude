@@ -22,7 +22,7 @@ def test_jobconfig_defaults_match_architecture():
     assert cfg.engine == "remotion"
     assert cfg.visual_mode == "emoticon"
     assert cfg.show_opening is True
-    assert cfg.show_outro is False
+    assert cfg.show_outro is True
 
 
 @pytest.mark.parametrize("field,value", [("language", "en"), ("engine", "ffmpeg"), ("chunk_size", 0), ("chunk_size", 25), ("visual_mode", "video")])

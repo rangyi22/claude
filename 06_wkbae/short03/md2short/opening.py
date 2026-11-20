@@ -7,14 +7,14 @@ from datetime import date
 OPENING_TEMPLATES: dict[str, dict[str, str]] = {
     "ko": {
         "spoken": "{month}월 {day}일 데이브리핑입니다.",
-        "visual": "{yy}년 {month}월 {day}일\n데이브리핑",
+        "visual": "{year}년 {month}월 {day}일\n데이브리핑",
     }
 }
 
 
 def build_opening(today: date) -> dict[str, str]:
     tpl = OPENING_TEMPLATES["ko"]
-    fields = {"yy": today.year % 100, "month": today.month, "day": today.day}
+    fields = {"year": today.year, "month": today.month, "day": today.day}
     return {"spoken": tpl["spoken"].format(**fields), "visual": tpl["visual"].format(**fields)}
 
 OPENING_ANCHOR = "브리핑"

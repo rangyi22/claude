@@ -2,7 +2,7 @@ import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { CONTENT_HEIGHT, CONTENT_TOP, FONT_DISPLAY, WIDTH } from "./layout";
 
-// Big centered opening box ("26년 M월 D일\n데이브리핑"), rendered inside a
+// Big centered opening box ("2026년 M월 D일\n데이브리핑"), rendered inside a
 // Sequence that lasts openingDurationMs (only when showOpening).
 export const OpeningBriefing: React.FC<{ text: string; durationInFrames: number }> = ({
   text,

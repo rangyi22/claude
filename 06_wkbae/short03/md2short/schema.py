@@ -29,7 +29,7 @@ class JobConfig(BaseModel):
     engine: Literal["remotion"] = "remotion"  # ffmpeg 렌더 엔진 미지원
     visual_mode: Literal["emoticon", "photo"] = "emoticon"  # photo 는 OPENAI_API_KEY 필요
     show_opening: bool = True
-    show_outro: bool = False
+    show_outro: bool = True
 
 
 class CaptionWord(BaseModel):

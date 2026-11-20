@@ -86,14 +86,14 @@ def test_normalize_bg_color_rejects_invalid(bad):
 
 def test_build_props_opening_contract():
     on = render.build_props(
-        "sf_x", 10000, opening_text="26년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=True
+        "sf_x", 10000, opening_text="2026년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=True
     )
     assert on["showOpening"] is True
     assert on["openingDurationMs"] == 2800
-    assert on["openingText"] == "26년 11월 20일\n데이브리핑"
+    assert on["openingText"] == "2026년 11월 20일\n데이브리핑"
 
     off = render.build_props(
-        "sf_x", 10000, opening_text="26년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=False
+        "sf_x", 10000, opening_text="2026년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=False
     )
     assert off["showOpening"] is False
     assert off["openingDurationMs"] == 0  # §5.10 suppression 0ms
@@ -215,7 +215,7 @@ def test_build_render_command_exact():
     cmd = render.build_render_command("/abs/out.mp4", "/abs/props.json")
     assert cmd == [
         "npx", "remotion", "render", "src/index.ts", "TechExplainer", "/abs/out.mp4",
-        "--props=/abs/props.json", "--codec=h264", "--width=1080", "--height=1920",
+        "--props=/abs/props.json", "--codec=h264", "--audio-bitrate=192k", "--width=1080", "--height=1920",
         "--log=warn", "--overwrite",
     ]
 

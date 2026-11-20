@@ -65,7 +65,7 @@ def run(
     model: str = typer.Option("gpt-5-mini", "--model", help="OpenAI Responses API 대본 생성 모델"),
     output: str = typer.Option("output/ret.mp4", "--output", "-o", help="final MP4 사본 경로. 빈 문자열이면 비활성화"),
     opening: bool = typer.Option(True, "--opening/--no-opening", help="날짜 오프닝 표시"),
-    outro: bool = typer.Option(False, "--outro/--no-outro", help="마지막 구독 CTA overlay 표시"),
+    outro: bool = typer.Option(True, "--outro/--no-outro", help="마지막 구독 CTA + 면책 문구 overlay 표시"),
 ) -> None:
     """마크다운 1개로 숏폼 영상 1편을 생성한다."""
     env.load_env()

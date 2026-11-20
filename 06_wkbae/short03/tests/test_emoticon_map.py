@@ -61,10 +61,56 @@ def test_specific_keyword_wins():
     words = build_words(["유가 급등 소식입니다."])
     assert plan_cues(words)[0]["emoticonFileName"] == EMOTICON_KEYWORDS["유가급등"]
     assert plan_cues(words)[0]["keyword"] == "유가급등"
-    words = build_words(["강하게 상승 마감했습니다."])
+    words = build_words(["반도체 18연속 상승 마감했습니다."])
     assert plan_cues(words)[0]["emoticonFileName"] == EMOTICON_KEYWORDS["상승 마감"]
     words = build_words(["애플, 호실적으로 3.2% 상승했습니다."])
     assert plan_cues(words)[0]["emoticonFileName"] == EMOTICON_KEYWORDS["애플 호실적"]
+
+
+def test_claim_emoticon_requires_fact_in_text():
+    # 그림에 "18연속 / 반도체"가 적힌 컷은 원고에 18연속이 없으면 쓰지 않는다
+    cue = plan_cues(build_words(["강하게 상승 마감했습니다."]))[0]
+    assert cue["emoticonFileName"] != EMOTICON_KEYWORDS["18연속"]
+    # "약세" 만으로 유가하락 컷, 상승 fallback 으로 사상최고치 컷이 나오면 안 된다
+    assert plan_cues(build_words(["달러가 약세입니다."]))[0]["emoticonFileName"] != EMOTICON_KEYWORDS["오일약세"]
+    for c in plan_cues(build_words(["지수가 많이 올랐습니다."] * 5)):
+        assert c["emoticonFileName"] != EMOTICON_KEYWORDS["사상최고치"]
+    assert plan_cues(build_words(["나스닥 사상 최고치 경신."]))[0]["emoticonFileName"] == EMOTICON_KEYWORDS["최고치"]
+    for fname in em.CLAIM_TOKENS:
+        assert fname in EMOTICON_KEYWORDS.values()
+
+
+def test_mild_vs_severe_decline():
+    mild = plan_cues(build_words(["다우는 소폭 하락했습니다."]))[0]
+    severe = plan_cues(build_words(["로블록스가 18% 급락했습니다."]))[0]
+    assert mild["emoticonFileName"] == EMOTICON_KEYWORDS["관망"]
+    assert severe["emoticonFileName"] == EMOTICON_KEYWORDS["급락"]
+    # 가격과 무관한 '감소'에는 투자 손실 컷("내 돈…")을 쓰지 않는다
+    loss_cuts = (EMOTICON_KEYWORDS["하락"], EMOTICON_KEYWORDS["급락"], EMOTICON_KEYWORDS["폭락"])
+    # fallback pool 은 span 순서로 회전하므로 어느 위치에 와도 손실 컷이 나오면 안 된다
+    for n in range(6):
+        cues = plan_cues(build_words([f"문장 {i} 입니다." for i in range(n)] + ["사용자 감소로 이어졌습니다."]))
+        assert cues[-1]["emoticonFileName"] not in loss_cuts
+
+
+def test_prefers_unused_emoticons():
+    files = [c["emoticonFileName"] for c in plan_cues(build_words(SAMPLE_SENTENCES))]
+    assert len(set(files)) == len(files)
+    # 뒤 문장의 1순위 키워드 컷(좋은 성과 -> 굿굿)은 앞 문장 fallback 이 먼저 가져가지 않는다
+    words = build_words(["주가가 상승했습니다.", "랠리가 이어졌습니다.", "상승 랠리입니다.", "좋은 성과입니다."])
+    assert plan_cues(words)[-1]["emoticonFileName"] == EMOTICON_KEYWORDS["좋은 성과"]
+
+
+def test_oneul_is_not_rise_trigger():
+    cue = plan_cues(build_words(["오늘 장 흐름도 주목하시기 바랍니다."]))[0]
+    assert cue["emoticonFileName"] in em._NEUTRAL_FILES
+
+
+def test_lead_in_starts_first_cue_early():
+    words = [{"text": "가", "start": 3000, "end": 3500}, {"text": "나.", "start": 3600, "end": 4000}]
+    assert plan_cues(words, lead_in_ms=2400)[0]["startMs"] == 2400
+    assert plan_cues(words, lead_in_ms=2400)[0]["durationMs"] == 4000 - 2400
+    assert plan_cues(words)[0]["startMs"] == 3000
 
 
 def test_fallback_categories_and_neutral():

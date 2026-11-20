@@ -221,7 +221,7 @@ def _run_steps(
             visual_mode = "emoticon"
             emoticon_cues = None
     if emoticon_cues is None:
-        emoticon_cues = emoticon_map.plan_cues(words, segments=segments or None)
+        emoticon_cues = emoticon_map.plan_cues(words, segments=segments or None, lead_in_ms=opening_ms or None)
         _write_json(edit / "emoticon_cues.json", emoticon_cues)
 
     number_cards = data_extract.plan_number_cards(script["full_text"], audio_ms)
