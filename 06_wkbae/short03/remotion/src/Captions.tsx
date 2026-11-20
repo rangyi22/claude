@@ -130,21 +130,50 @@ const pickHighlight = (tokens: CaptionToken[], keywords: string[]): Highlight =>
   return null;
 };
 
-// Colors only the keyword inside the token ("상승이라는" -> "상승" + "이라는"),
-// so particles/endings stay white. Decline keywords use red, others yellow.
-const HighlightedText: React.FC<{ text: string; keyword: string }> = ({ text, keyword }) => {
-  const color = DOWN_KEYWORD_RE.test(keyword) ? DOWN_HIGHLIGHT_COLOR : HIGHLIGHT_COLOR;
-  const at = text.indexOf(keyword);
-  if (at < 0) {
-    return <span style={{ color }}>{text}</span>;
+// Data values worth highlighting: percentages and comma-grouped numbers
+// ("0.94%", "18%", "7,230"). Years/counts like "2024년", "5주" stay white.
+const NUMBER_RE = /[+\-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|[+\-−]?\d+(?:\.\d+)?%/g;
+
+type ColorRange = { start: number; end: number; color: string };
+
+// Colors only the keyword / number inside the token ("상승이라는" -> "상승" +
+// "이라는", "7,230을" -> "7,230" + "을") so particles and endings stay white.
+// Decline keywords use red, others yellow; numbers follow the chunk's direction.
+const HighlightedText: React.FC<{ text: string; keyword: string | null; numberColor: string }> = ({
+  text,
+  keyword,
+  numberColor,
+}) => {
+  const ranges: ColorRange[] = [];
+  for (const m of text.matchAll(NUMBER_RE)) {
+    ranges.push({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length, color: numberColor });
   }
-  return (
-    <>
-      {text.slice(0, at)}
-      <span style={{ color }}>{keyword}</span>
-      {text.slice(at + keyword.length)}
-    </>
-  );
+  if (keyword) {
+    const at = text.indexOf(keyword);
+    const color = DOWN_KEYWORD_RE.test(keyword) ? DOWN_HIGHLIGHT_COLOR : HIGHLIGHT_COLOR;
+    if (at >= 0) {
+      ranges.push({ start: at, end: at + keyword.length, color });
+    } else {
+      ranges.push({ start: 0, end: text.length, color });
+    }
+  }
+  ranges.sort((a, b) => a.start - b.start);
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  ranges.forEach((r, i) => {
+    if (r.start < cursor) {
+      return; // overlapping range: first one wins
+    }
+    parts.push(text.slice(cursor, r.start));
+    parts.push(
+      <span key={i} style={{ color: r.color }}>
+        {text.slice(r.start, r.end)}
+      </span>,
+    );
+    cursor = r.end;
+  });
+  parts.push(text.slice(cursor));
+  return <>{parts}</>;
 };
 
 const fontSizeFor = (tokens: CaptionToken[]): number => {
@@ -158,15 +187,13 @@ export const Captions: React.FC<{
   captionSegments: CaptionSegment[];
   chunkSize: number;
   highlightKeywords: string[];
-  showOpening: boolean;
-  openingDurationMs: number;
-}> = ({ words, captionSegments, chunkSize, highlightKeywords, showOpening, openingDurationMs }) => {
+}> = ({ words, captionSegments, chunkSize, highlightKeywords }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const chunks = React.useMemo(
-    () => buildChunks(words, captionSegments, chunkSize, showOpening ? openingDurationMs : 0),
-    [words, captionSegments, chunkSize, showOpening, openingDurationMs],
+    () => buildChunks(words, captionSegments, chunkSize, 0),
+    [words, captionSegments, chunkSize],
   );
 
   const active = chunks.find(
@@ -178,6 +205,8 @@ export const Captions: React.FC<{
 
   const fontSize = fontSizeFor(active.tokens);
   const highlight = pickHighlight(active.tokens, highlightKeywords);
+  const chunkText = active.tokens.map((t) => t.text).join(" ");
+  const numberColor = DOWN_KEYWORD_RE.test(chunkText) ? DOWN_HIGHLIGHT_COLOR : HIGHLIGHT_COLOR;
   const lineHeight = 1.3;
 
   return (
@@ -235,11 +264,11 @@ export const Captions: React.FC<{
                 textShadow: "0 4px 10px rgba(0,0,0,0.6)",
               }}
             >
-              {highlight && i === highlight.index ? (
-                <HighlightedText text={token.text} keyword={highlight.keyword} />
-              ) : (
-                token.text
-              )}
+              <HighlightedText
+                text={token.text}
+                keyword={highlight && i === highlight.index ? highlight.keyword : null}
+                numberColor={numberColor}
+              />
             </span>
           );
         })}

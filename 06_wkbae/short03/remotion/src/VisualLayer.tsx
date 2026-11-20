@@ -4,7 +4,7 @@ import { CONTENT_HEIGHT, CONTENT_TOP, WIDTH } from "./layout";
 import { msToFrames } from "./time";
 import type { EmoticonCue } from "./types";
 
-const EMOTICON_SIZE = 820;
+const EMOTICON_SIZE = 960;
 const KEN_BURNS_ZOOM = 0.08;
 const FADE_FRAMES = 6;
 
@@ -84,7 +84,7 @@ const CueVisual: React.FC<{ cue: EmoticonCue; index: number; durationInFrames: n
 };
 
 // One <Sequence> per visual cue inside the safe content rect
-// (between the 470px header and the 460px bottom bar).
+// (between the 360px header and the 380px bottom bar).
 export const VisualLayer: React.FC<{ cues: EmoticonCue[] }> = ({ cues }) => {
   const { fps } = useVideoConfig();
   return (

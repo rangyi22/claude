@@ -14,7 +14,7 @@ from typing import Literal, NoReturn, cast
 
 import typer
 
-from md2short import env
+from md2short import env, frontmatter
 from md2short.schema import DEFAULT_VOICES, JobConfig
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="MD2Short — 마크다운 → 9:16 한국어 숏폼 MP4")
@@ -66,6 +66,7 @@ def run(
     output: str = typer.Option("output/ret.mp4", "--output", "-o", help="final MP4 사본 경로. 빈 문자열이면 비활성화"),
     opening: bool = typer.Option(True, "--opening/--no-opening", help="날짜 오프닝 표시"),
     outro: bool = typer.Option(True, "--outro/--no-outro", help="마지막 구독 CTA + 면책 문구 overlay 표시"),
+    market_date: str = typer.Option("", "--date", help="데이터 기준일 YYYY-MM-DD (원고 front-matter date: 보다 우선)"),
 ) -> None:
     """마크다운 1개로 숏폼 영상 1편을 생성한다."""
     env.load_env()
@@ -83,6 +84,11 @@ def run(
     if not markdown_file.is_file():
         _fail_input(f"마크다운 파일을 찾을 수 없습니다: {markdown_file}")
     try:
+        meta, _body = frontmatter.split_front_matter(markdown_file.read_text(encoding="utf-8"))
+        frontmatter.parse_market_date(market_date or meta.get("date"))
+    except ValueError as exc:
+        _fail_input(str(exc))
+    try:
         env.require_elevenlabs_key()
     except env.MissingEnvError as exc:
         _fail_input(str(exc))
@@ -98,6 +104,7 @@ def run(
         visual_mode=cast(Literal["emoticon", "photo"], visual_mode),  # 위에서 검증됨
         show_opening=opening,
         show_outro=outro,
+        market_date=market_date or None,
     )
 
     from md2short import pipeline

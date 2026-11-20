@@ -24,8 +24,11 @@ PROPS_KEYS = [
     "captionSegments",
     "companyLogoCues",
     "numberCards",
+    "indexBoard",
+    "headline",
     "highlightKeywords",
     "openingText",
+    "sourceText",
     "openingDurationMs",
     "showOpening",
     "ctaText",
@@ -375,9 +378,17 @@ def test_render_remotion_smoke(tmp_path):
              "keyword": "상승", "assetKind": "emoticon", "visualMode": "emoticon"}
         ],
         number_cards=[{"text": "+5%", "startMs": 1300, "durationMs": 1800}],
-        company_logo_cues=[{"logoFileName": "company/apple.png", "name": "Apple", "startMs": 400, "durationMs": 1800}],
+        company_logo_cues=[{"logoFileName": "", "name": "Apple", "label": "애플", "ticker": "AAPL", "startMs": 400, "durationMs": 1800}],
+        index_board={"rows": [{"name": "나스닥", "value": "0.94%", "tone": "up", "startMs": 2000},
+                              {"name": "다우", "value": "", "tone": "down", "startMs": 2400}],
+                     "startMs": 2000, "durationMs": 800},
+        headline={"lines": ["5주 연속 상승", "2024년 이후 최장"], "startMs": 0, "durationMs": 1200},
         highlight_keywords=["애플", "반도체"],
-        show_opening=False,
+        opening_text="11월 13일(금) 데이브리핑",
+        opening_duration_ms=1000,
+        source_text="데이터 기준: 11월 13일(금)",
+        show_opening=True,
+        show_outro=True,
     )
     out = tmp_path / "edit" / "final.mp4"
     log = tmp_path / "logs" / "remotion.log"

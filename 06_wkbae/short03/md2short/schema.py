@@ -30,6 +30,7 @@ class JobConfig(BaseModel):
     visual_mode: Literal["emoticon", "photo"] = "emoticon"  # photo 는 OPENAI_API_KEY 필요
     show_opening: bool = True
     show_outro: bool = True
+    market_date: str | None = None  # YYYY-MM-DD 데이터 기준일 (CLI --date, front-matter date: 보다 우선)
 
 
 class CaptionWord(BaseModel):

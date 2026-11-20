@@ -4,9 +4,11 @@ import { BottomBar } from "./BottomBar";
 import { BrandHeader } from "./BrandHeader";
 import { Captions } from "./Captions";
 import { CompanyLogos } from "./CompanyLogo";
+import { HeadlineLayer } from "./HeadlineCard";
+import { IndexBoardLayer } from "./IndexBoard";
 import { NumberCards } from "./NumberCard";
 import { OpeningBriefing } from "./OpeningBriefing";
-import { OUTRO_DURATION_MS, Outro } from "./Outro";
+import { OUTRO_DURATION_MS, OUTRO_MIN_MS, Outro } from "./Outro";
 import { VisualLayer } from "./VisualLayer";
 import { useFontCss, useWords } from "./loaders";
 import { msToFrames } from "./time";
@@ -18,19 +20,27 @@ export const TechExplainer: React.FC<CueProps> = (props) => {
   const words = useWords(props.wordsFileName);
   const { fps, durationInFrames } = useVideoConfig();
 
-  // showOpening contract (§5.10): opening visual + caption/visual suppression
-  // for openingDurationMs. showOpening=false => suppression is 0ms.
-  const openingMs = props.showOpening ? Math.max(0, props.openingDurationMs) : 0;
-  const openingFrames = msToFrames(openingMs, fps);
-  const visualCues = props.emoticonCues.filter((cue) => cue.startMs + cue.durationMs > openingMs);
-  const outroFrames = Math.min(durationInFrames, msToFrames(OUTRO_DURATION_MS, fps));
+  // showOpening contract (§5.10): the date is not spoken, so nothing is
+  // suppressed — the badge simply overlays the hook for openingDurationMs.
+  const badgeFrames = props.showOpening ? msToFrames(Math.max(0, props.openingDurationMs), fps) : 0;
+
+  // Outro starts with the last caption segment (words.json timing) so it never
+  // covers the previous sentence, clamped to [OUTRO_MIN_MS, OUTRO_DURATION_MS].
+  const maxOutro = Math.min(durationInFrames, msToFrames(OUTRO_DURATION_MS, fps));
+  const minOutro = Math.min(maxOutro, msToFrames(OUTRO_MIN_MS, fps));
+  const lastSegment = props.captionSegments[props.captionSegments.length - 1];
+  const outroFrom = lastSegment
+    ? Math.min(durationInFrames - minOutro, Math.max(durationInFrames - maxOutro, msToFrames(lastSegment.startMs, fps)))
+    : durationInFrames - maxOutro;
 
   return (
     <AbsoluteFill style={{ backgroundColor: props.bgColor }}>
       {props.audioFileName ? <Audio src={staticFile(props.audioFileName)} /> : null}
-      <VisualLayer cues={visualCues} />
+      <VisualLayer cues={props.emoticonCues} />
       <CompanyLogos cues={props.companyLogoCues} />
       <NumberCards cards={props.numberCards} />
+      <IndexBoardLayer board={props.indexBoard ?? null} />
+      <HeadlineLayer headline={props.headline ?? null} />
       <BrandHeader />
       <BottomBar />
       <Captions
@@ -38,17 +48,15 @@ export const TechExplainer: React.FC<CueProps> = (props) => {
         captionSegments={props.captionSegments}
         chunkSize={props.chunkSize}
         highlightKeywords={props.highlightKeywords}
-        showOpening={props.showOpening}
-        openingDurationMs={props.openingDurationMs}
       />
-      {props.showOpening && openingFrames > 0 && props.openingText ? (
-        <Sequence from={0} durationInFrames={openingFrames} layout="none">
-          <OpeningBriefing text={props.openingText} durationInFrames={openingFrames} />
+      {badgeFrames > 0 && props.openingText ? (
+        <Sequence from={0} durationInFrames={badgeFrames} layout="none">
+          <OpeningBriefing text={props.openingText} durationInFrames={badgeFrames} />
         </Sequence>
       ) : null}
-      {props.showOutro && outroFrames > 0 ? (
-        <Sequence from={durationInFrames - outroFrames} durationInFrames={outroFrames} layout="none">
-          <Outro ctaText={props.ctaText} />
+      {props.showOutro && durationInFrames - outroFrom > 0 ? (
+        <Sequence from={outroFrom} durationInFrames={durationInFrames - outroFrom} layout="none">
+          <Outro ctaText={props.ctaText} sourceText={props.sourceText ?? ""} />
         </Sequence>
       ) : null}
     </AbsoluteFill>

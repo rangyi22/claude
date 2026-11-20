@@ -176,10 +176,12 @@ def test_company_logo_cues_sample():
     words = build_words(SAMPLE_SENTENCES)
     audio_end = words[-1]["end"]
     cues = plan_company_logo_cues(words)
-    assert [c["logoFileName"] for c in cues] == [
-        "company/apple.png", "company/sandisk.png", "company/oracle.png", "company/roblox.png"
-    ]
+    # 실제 로고 파일이 없으면 logoFileName 은 "" (Remotion 이 한글 이름 + 티커 배지)
+    assert [c["logoFileName"] for c in cues] == ["", "", "", ""]
     assert [c["name"] for c in cues] == ["Apple", "SanDisk", "Oracle", "Roblox"]
+    assert [(c["label"], c["ticker"]) for c in cues] == [
+        ("애플", "AAPL"), ("샌디스크", "SNDK"), ("오라클", "ORCL"), ("로블록스", "RBLX")
+    ]
     for c in cues:
         assert c["durationMs"] >= 1500 or c["startMs"] + c["durationMs"] == audio_end
         assert c["startMs"] + c["durationMs"] <= audio_end
@@ -190,11 +192,8 @@ def test_company_logo_cues_sample():
 
 def test_company_logo_english_josa_and_openai():
     words = build_words(["Apple 과 NVIDIA 그리고 오픈 AI 와 메타버스 구글이 퀄컴 마이크로소프트."])
-    slugs = [c["logoFileName"] for c in plan_company_logo_cues(words)]
-    assert slugs == [
-        "company/apple.png", "company/nvidia.png", "company/openai.png",
-        "company/google.png", "company/qualcomm.png", "company/microsoft.png",
-    ]  # 메타버스는 meta가 아님
+    names = [c["name"] for c in plan_company_logo_cues(words)]
+    assert names == ["Apple", "NVIDIA", "OpenAI", "Google", "Qualcomm", "Microsoft"]  # 메타버스는 meta가 아님
 
 
 def test_company_logo_repeat_mention_inside_active_window_skipped():
@@ -215,3 +214,66 @@ def test_storyboard_direction_drives_emoticon_choice():
     assert len(cues) == 1
     assert cues[0]["emoticonFileName"] == EMOTICON_KEYWORDS[cues[0]["keyword"]]
     assert cues[0]["keyword"] in seg["direction"].replace(" ", "")
+
+
+def test_defense_ai_sentence_gets_ai_contract_cut():
+    words = build_words(["오라클이 미 국방부 AI 네트워크 프로젝트에 공식 합류했습니다."])
+    assert plan_cues(words)[0]["emoticonFileName"] == EMOTICON_KEYWORDS["AI"]
+
+
+def test_closing_briefing_line_gets_report_cut():
+    words = build_words(["오늘 브리핑은 여기까지입니다."])
+    assert plan_cues(words)[0]["emoticonFileName"] == EMOTICON_KEYWORDS["리포트"]
+
+
+def test_company_logo_lasts_until_sentence_end():
+    words = build_words(["애플은 호실적으로 3.2% 상승했고 시장 기대를 크게 웃돌았습니다."])
+    segs = build_caption_line_segments(words)
+    cue = plan_company_logo_cues(words, segments=segs)[0]
+    assert cue["startMs"] + cue["durationMs"] == segs[0]["endMs"]
+    assert plan_company_logo_cues(words)[0]["durationMs"] == em.MIN_LOGO_DURATION_MS
+
+
+def test_neutral_fallback_excludes_stagnant_cut():
+    assert EMOTICON_KEYWORDS["관망"] not in em._NEUTRAL_FILES
+    for n in range(4):
+        cues = plan_cues(build_words([f"문장 {i} 입니다." for i in range(n)] + ["시장이 새 국면에 진입한 신호입니다."]))
+        assert cues[-1]["emoticonFileName"] != EMOTICON_KEYWORDS["관망"]
+
+
+
+def test_company_logo_uses_real_file_only_when_present(tmp_path):
+    (tmp_path / "apple.png").write_bytes(b"png")
+    words = build_words(["애플이 올랐고 오라클도 올랐습니다."])
+    cues = plan_company_logo_cues(words, logo_dir=tmp_path)
+    assert [c["logoFileName"] for c in cues] == ["company/apple.png", ""]
+
+
+def test_placeholder_logos_are_not_in_active_dir():
+    # placeholder 타일은 company/_placeholder/ 로 옮겨져 렌더에 쓰이지 않는다
+    assert not list((ROOT / "company").glob("*.png"))
+    assert (ROOT / "company" / "_placeholder" / "apple.png").is_file()
+
+
+def test_topic_continuation_extends_previous_cut():
+    words = build_words([
+        "오라클이 미 국방부 AI 네트워크 프로젝트에 공식 합류했습니다.",
+        "정부의 AI 시장이 본격 매출 사이클에 진입한 신호입니다.",
+        "로블록스가 18% 급락했습니다.",
+    ])
+    segs = build_caption_line_segments(words)
+    cues = plan_cues(words, segments=segs)
+    assert [c["emoticonFileName"] for c in cues] == [EMOTICON_KEYWORDS["AI"], EMOTICON_KEYWORDS["급락"]]
+    assert cues[0]["startMs"] + cues[0]["durationMs"] == segs[2]["startMs"]
+
+
+def test_direction_words_do_not_count_as_same_topic():
+    files = [c["emoticonFileName"] for c in plan_cues(build_words(["주가가 상승했습니다.", "환율이 상승했습니다."]))]
+    assert len(files) == 2 and files[0] != files[1]
+
+
+def test_demonstrative_sentence_continues_previous_cut():
+    words = build_words(["다우는 소폭 하락했습니다.", "이는 투자 심리가 위축된 결과입니다."])
+    assert len(plan_cues(words)) == 1
+    # 새 키워드가 있으면 지시어로 시작해도 새 컷이 우선한다
+    assert len(plan_cues(build_words(["다우는 소폭 하락했습니다.", "이는 금리 부담 때문입니다."]))) == 2

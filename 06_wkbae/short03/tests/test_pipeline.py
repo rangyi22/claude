@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from md2short import cli, photo_engine, pipeline, render, state, transcript, voice
+from md2short import cli, opening, photo_engine, pipeline, render, state, transcript, voice
 from md2short.schema import JobConfig
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg 필요")
@@ -129,11 +129,13 @@ def test_props_and_opening_contract(fake_apis, tmp_path):
     _run(tmp_path)
     props = fake_apis["render"][0]
     assert props["showOpening"] is True
-    assert props["openingDurationMs"] == _words()[2]["end"]
+    # 날짜는 음성 없는 배지: 고정 표시 시간, 자막 suppression 없음 (§5.10)
+    assert props["openingDurationMs"] == opening.OPENING_BADGE_MS
     assert "데이브리핑" in props["openingText"]
+    assert "데이브리핑" not in fake_apis["tts"][0]
     assert props["durationInFrames"] == 180  # 6000ms × 30fps
-    # opening 단어는 caption segment 에서 제외된다
-    assert props["captionSegments"][0]["wordStart"] == 3
+    assert props["captionSegments"][0]["wordStart"] == 0
+    assert props["emoticonCues"][0]["startMs"] == 0
     # numeric_display 가 "삼점이 퍼센트" 를 원문 표시형으로 복원
     words = json.loads(next((tmp_path / "jobs").glob("*/transcripts/words.json")).read_text())["words"]
     assert any("3.2" in w["text"] for w in words)

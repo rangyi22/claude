@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 from md2short.caption_plan import build_caption_line_segments
 
 # 파일 stem -> 키워드. 키워드는 공백/기호 제거 후 부분 문자열로 매칭한다.
 _FILE_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "01_정독중_리포트": ("정독", "리포트", "보고서"),
+    "01_정독중_리포트": ("정독", "리포트", "보고서", "브리핑"),  # 마무리 인사("오늘 브리핑은…")
     "02_머리아파_혼란": ("머리아파", "혼란", "복잡", "헷갈"),
     "03_굿굿_칭찬": ("굿굿", "칭찬", "호평", "좋은 성과", "성과"),
     "04_나도울고싶어_하락": ("나도울고싶어", "울고싶", "하락", "내렸"),
@@ -39,7 +40,8 @@ _FILE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "24_연준혼돈_금리불확실": ("연준", "연준혼돈", "금리불확실", "불확실"),
     "25_애플깜짝성장_실적호조": ("애플", "아이폰", "애플 호실적"),
     "26_반도체급등_로켓상승": ("반도체급등", "로켓상승", "반도체"),
-    "27_AI계약_승인": ("AI계약", "AI", "계약"),
+    # 군복 + AI 서버 + 계약서 그림: 국방·방산 + AI 문장이 "공식 합류"(4자)보다 우선하도록 "국방부 AI"(5자)
+    "27_AI계약_승인": ("AI계약", "AI", "계약", "국방부 AI", "국방부", "국방", "방산"),
     "28_폭락_패닉하락": ("폭락", "패닉"),
     "29_유가하락_오일약세": ("유가하락", "오일약세", "약세"),
     "30_랠리_상승파티": ("랠리", "상승파티", "연속 상승"),
@@ -122,7 +124,8 @@ CLAIM_TOKENS: dict[str, tuple[str, ...]] = {
 _UP_FILES = ("emoticon/09_가즈아_상승.png", "emoticon/30_랠리_상승파티.png", "emoticon/03_굿굿_칭찬.png")
 # 가격이 아닌 '감소·부진'에도 걸리므로 투자 손실 컷("내 돈…", 전량매도)은 넣지 않는다.
 _DOWN_FILES = ("emoticon/02_머리아파_혼란.png", "emoticon/13_이게뭔말이야_당황.png")
-_NEUTRAL_FILES = ("emoticon/06_움직임없음_관망.png", "emoticon/05_분석중_차트.png", "emoticon/01_정독중_리포트.png")
+# 관망("움직여라 좀…")은 정체를 뜻하므로 중립 fallback 에 넣지 않는다 (보합·소폭 하락 키워드 전용).
+_NEUTRAL_FILES = ("emoticon/05_분석중_차트.png", "emoticon/01_정독중_리포트.png", "emoticon/12_리포트작성_공부.png")
 DEFAULT_EMOTICON = _NEUTRAL_FILES[0]
 
 FALLBACK_CATEGORIES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
@@ -236,6 +239,29 @@ def _spans(words: list[dict], segments: list[dict] | None) -> list[tuple[int, in
     return spans
 
 
+# 주제 연속 판단에서 제외할 방향·감정어 (정규화 형태). 이런 단어만 겹치면 같은 주제로 보지 않는다.
+_DIRECTION_KEYWORDS = frozenset(
+    _norm(k)
+    for k in (
+        "상승", "하락", "급등", "급락", "올랐", "내렸", "강세", "약세", "폭락", "추락", "매도", "상승 마감",
+        "연속 상승", "소폭 하락", "소폭 내", "강세마감", "나도울고싶어", "울고싶", "가즈아", "성장", "성과",
+        "좋은 성과", "칭찬", "굿굿", "패닉", "투매", "매도세",
+    )
+)
+_CONTINUATION_PREFIXES = ("이는", "이번", "이로써", "이에", "이 같은", "이와")
+
+
+def _continues_topic(prev_file: str, text: str) -> bool:
+    """지시어로 시작하거나, 직전 컷의 주제 키워드(방향어 제외)가 현재 문장에 있으면 같은 주제."""
+    if text.lstrip().startswith(_CONTINUATION_PREFIXES):
+        return True
+    stem = prev_file.removeprefix("emoticon/").removesuffix(".png")
+    norm = _norm(text)
+    return any(
+        (k := _norm(kw)) and k not in _DIRECTION_KEYWORDS and k in norm for kw in _FILE_KEYWORDS.get(stem, ())
+    )
+
+
 def plan_cues(
     words: list[dict],
     segments: list[dict] | None = None,
@@ -245,7 +271,8 @@ def plan_cues(
 ) -> list[dict[str, Any]]:
     """words -> emoticon cue 목록. fill_gaps=True는 span당 1 cue, 개수 제한 없음.
 
-    선택 우선순위: 아직 안 쓴 키워드 매칭 > 안 쓴 fallback > 직전과 다른 키워드 매칭 > fallback.
+    선택 우선순위: 아직 안 쓴 키워드 매칭 > (같은 주제면) 직전 컷 유지 > 안 쓴 fallback > 직전과 다른 키워드 매칭 > fallback.
+    직전 컷 유지는 새 cue 를 만들지 않고 직전 cue 의 durationMs 를 늘린다 (같은 그림으로 crossfade 하지 않음).
     lead_in_ms 가 주어지면 첫 cue 를 그 시점(예: opening 종료, words.json 기준)부터 시작해 빈 화면을 없앤다.
     """
     if not words:
@@ -267,6 +294,11 @@ def plan_cues(
     used: set[str] = set()
     for n, ((s, e, _direction), text, cands) in enumerate(zip(spans, texts, all_cands)):
         fresh = next(((f, kw) for _sc, _o, kw, f in cands if f not in used and f != prev), None)
+        last_end = int(words[e - 1]["end"])
+        end_ms = max(int(words[spans[n + 1][0]]["start"]), last_end) if n + 1 < len(spans) else last_end
+        if fresh is None and prev is not None and cues and _continues_topic(prev, text):
+            cues[-1]["durationMs"] = max(1, end_ms - cues[-1]["startMs"])
+            continue
         if fresh is not None:
             file, keyword = fresh
         else:
@@ -282,8 +314,6 @@ def plan_cues(
         start = int(words[s]["start"])
         if n == 0 and lead_in_ms is not None:
             start = min(start, max(0, int(lead_in_ms)))
-        last_end = int(words[e - 1]["end"])
-        end_ms = max(int(words[spans[n + 1][0]]["start"]), last_end) if n + 1 < len(spans) else last_end
         cues.append(_cue(file, start, max(1, end_ms - start), keyword))
         prev = file
         used.add(file)
@@ -324,21 +354,22 @@ def all_highlight_keywords(source: list[dict] | str) -> list[str]:
 # ---------------------------------------------------------------- 회사 로고
 
 COMPANY_LOGOS: dict[str, dict[str, Any]] = {
-    "apple": {"name": "Apple", "aliases": ("애플", "Apple")},
-    "oracle": {"name": "Oracle", "aliases": ("오라클", "Oracle")},
-    "roblox": {"name": "Roblox", "aliases": ("로블록스", "Roblox")},
-    "sandisk": {"name": "SanDisk", "aliases": ("샌디스크", "SanDisk")},
-    "nvidia": {"name": "NVIDIA", "aliases": ("엔비디아", "NVIDIA")},
-    "microsoft": {"name": "Microsoft", "aliases": ("마이크로소프트", "Microsoft")},
-    "google": {"name": "Google", "aliases": ("구글", "Google")},
-    "amazon": {"name": "Amazon", "aliases": ("아마존", "Amazon")},
-    "tesla": {"name": "Tesla", "aliases": ("테슬라", "Tesla")},
-    "meta": {"name": "Meta", "aliases": ("메타", "Meta")},
-    "qualcomm": {"name": "Qualcomm", "aliases": ("퀄컴", "Qualcomm")},
-    "openai": {"name": "OpenAI", "aliases": ("오픈AI", "오픈에이아이", "OpenAI")},
+    "apple": {"name": "Apple", "ticker": "AAPL", "aliases": ("애플", "Apple")},
+    "oracle": {"name": "Oracle", "ticker": "ORCL", "aliases": ("오라클", "Oracle")},
+    "roblox": {"name": "Roblox", "ticker": "RBLX", "aliases": ("로블록스", "Roblox")},
+    "sandisk": {"name": "SanDisk", "ticker": "SNDK", "aliases": ("샌디스크", "SanDisk")},
+    "nvidia": {"name": "NVIDIA", "ticker": "NVDA", "aliases": ("엔비디아", "NVIDIA")},
+    "microsoft": {"name": "Microsoft", "ticker": "MSFT", "aliases": ("마이크로소프트", "Microsoft")},
+    "google": {"name": "Google", "ticker": "GOOGL", "aliases": ("구글", "Google")},
+    "amazon": {"name": "Amazon", "ticker": "AMZN", "aliases": ("아마존", "Amazon")},
+    "tesla": {"name": "Tesla", "ticker": "TSLA", "aliases": ("테슬라", "Tesla")},
+    "meta": {"name": "Meta", "ticker": "META", "aliases": ("메타", "Meta")},
+    "qualcomm": {"name": "Qualcomm", "ticker": "QCOM", "aliases": ("퀄컴", "Qualcomm")},
+    "openai": {"name": "OpenAI", "ticker": "", "aliases": ("오픈AI", "오픈에이아이", "OpenAI")},
 }
 for _slug, _info in COMPANY_LOGOS.items():
     _info["logoFileName"] = f"company/{_slug}.png"
+    _info["label"] = _info["aliases"][0]  # 배지에 쓰는 한글 이름
 
 MIN_LOGO_DURATION_MS = 1500
 _JOSA = frozenset(
@@ -364,8 +395,22 @@ def _company_at(words: list[dict], i: int) -> tuple[str, int] | None:
     return None
 
 
-def plan_company_logo_cues(words: list[dict]) -> list[dict[str, Any]]:
-    """회사명 언급 -> 로고 cue. 같은 회사의 cue 구간이 겹치는 재언급은 건너뛴다."""
+def _segment_end_ms(segments: list[dict] | None, word_index: int) -> int | None:
+    for seg in segments or []:
+        if "wordStart" in seg and "wordEnd" in seg and int(seg["wordStart"]) <= word_index < int(seg["wordEnd"]):
+            return int(seg["endMs"])
+    return None
+
+
+def plan_company_logo_cues(
+    words: list[dict], segments: list[dict] | None = None, logo_dir: Path | None = None
+) -> list[dict[str, Any]]:
+    """회사명 언급 -> 로고 cue. segments 가 있으면 그 문장 끝까지 노출 (최소 MIN_LOGO_DURATION_MS).
+
+    `logo_dir/<slug>.png` 실제 로고가 있을 때만 logoFileName 을 채우고, 없으면 "" —
+    Remotion 은 이때 한글 이름 + 티커 텍스트 배지를 그린다 (상표 이미지 없이도 표시 가능).
+    같은 회사의 cue 구간이 겹치는 재언급은 건너뛴다.
+    """
     if not words:
         return []
     audio_end = int(words[-1]["end"])
@@ -380,13 +425,16 @@ def plan_company_logo_cues(words: list[dict]) -> list[dict[str, Any]]:
         slug, length = hit
         start = int(words[i]["start"])
         if start >= active_until.get(slug, -1):
-            span_end = int(words[i + length - 1]["end"])
+            span_end = _segment_end_ms(segments, i) or int(words[i + length - 1]["end"])
             duration = min(max(MIN_LOGO_DURATION_MS, span_end - start), max(1, audio_end - start))
             info = COMPANY_LOGOS[slug]
+            has_logo = logo_dir is not None and (Path(logo_dir) / f"{slug}.png").is_file()
             cues.append(
                 {
-                    "logoFileName": info["logoFileName"],
+                    "logoFileName": info["logoFileName"] if has_logo else "",
                     "name": info["name"],
+                    "label": info["label"],
+                    "ticker": info["ticker"],
                     "startMs": start,
                     "durationMs": duration,
                 }

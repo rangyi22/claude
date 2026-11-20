@@ -1,7 +1,7 @@
 import React from "react";
 import { BOTTOM_BAR_HEIGHT, WIDTH } from "./layout";
 
-// Bottom 460px black caption band. Captions.tsx draws on top of it.
+// Bottom 380px black caption band. Captions.tsx draws on top of it.
 export const BottomBar: React.FC = () => (
   <div
     style={{

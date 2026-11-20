@@ -16,6 +16,7 @@ from md2short import (
     data_extract,
     emoticon_map,
     env,
+    frontmatter,
     numeric_display,
     opening,
     photo_engine,
@@ -40,17 +41,10 @@ def _write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _opening_word_count(words: list[dict], opening_ms: int) -> int:
-    return sum(1 for w in words if int(w["end"]) <= opening_ms) if opening_ms > 0 else 0
-
-
-def _storyboard_segments(sb: dict, words: list[dict], opening_ms: int) -> list[dict]:
-    """컷을 words.json 문장 boundary 에 매핑. opening 단어는 제외하고 인덱스를 원래 words 기준으로 복원."""
-    offset = _opening_word_count(words, opening_ms)
-    segments = storyboard.map_cuts_to_segments(sb, words[offset:])
+def _storyboard_segments(sb: dict, words: list[dict]) -> list[dict]:
+    """컷을 words.json 문장 boundary 에 매핑 (opening 은 음성이 없으므로 모든 단어가 대상)."""
+    segments = storyboard.map_cuts_to_segments(sb, words)
     for seg in segments:
-        seg["wordStart"] += offset
-        seg["wordEnd"] += offset
         if seg.get("imagePrompt"):
             seg["image_prompt"] = seg["imagePrompt"]
     return segments
@@ -144,8 +138,11 @@ def _run_steps(
     edit = paths["edit"]
 
     # [1] script
-    markdown = markdown_path.read_text(encoding="utf-8")
-    paths["source"].write_text(markdown, encoding="utf-8")
+    raw_markdown = markdown_path.read_text(encoding="utf-8")
+    paths["source"].write_text(raw_markdown, encoding="utf-8")
+    # front-matter `date:` = 데이터 기준일 (CLI --date 가 우선). 대본에는 본문만 넘긴다.
+    meta, markdown = frontmatter.split_front_matter(raw_markdown)
+    market_date = frontmatter.parse_market_date(config.market_date or meta.get("date"))
     sb = None
     sb_narration = None
     if storyboard.is_storyboard(markdown):
@@ -157,6 +154,7 @@ def _run_steps(
         openai_key,
         model=model,
         show_opening=config.show_opening,
+        market_date=market_date,
         log_dir=logs,
         storyboard_narration=sb_narration,
     )
@@ -187,12 +185,12 @@ def _run_steps(
     advance("transcribed", audio_duration_ms=audio_ms, word_count=len(words))
 
     # [5] visual cue planning
-    opening_ms = opening.opening_duration_ms(words) if config.show_opening else 0
+    # opening 은 음성 없는 날짜 배지라 자막·비주얼 suppression 없음 (§5.10)
     if sb is not None:
-        segments = _storyboard_segments(sb, words, opening_ms)
+        segments = _storyboard_segments(sb, words)
         _write_json(edit / "storyboard_segments.json", segments)
     else:
-        segments = caption_plan.build_caption_line_segments(words, config.chunk_size, skip_until_ms=opening_ms)
+        segments = caption_plan.build_caption_line_segments(words, config.chunk_size)
     if segments:
         _write_json(edit / "caption_segments.json", segments)
 
@@ -205,7 +203,6 @@ def _run_steps(
                 job_id=job_id,
                 api_key=openai_key or "",
                 chunk_size=config.chunk_size,
-                skip_until_ms=opening_ms,
                 segments=segments,
                 root=root,
                 on_stage=stage,
@@ -221,13 +218,21 @@ def _run_steps(
             visual_mode = "emoticon"
             emoticon_cues = None
     if emoticon_cues is None:
-        emoticon_cues = emoticon_map.plan_cues(words, segments=segments or None, lead_in_ms=opening_ms or None)
+        emoticon_cues = emoticon_map.plan_cues(words, segments=segments or None, lead_in_ms=0)
         _write_json(edit / "emoticon_cues.json", emoticon_cues)
 
-    number_cards = data_extract.plan_number_cards(script["full_text"], audio_ms)
+    index_board = data_extract.plan_index_board(segments)
+    if index_board:
+        _write_json(edit / "index_board.json", index_board)
+    headline = data_extract.plan_headline(segments)
+    if headline:
+        _write_json(edit / "headline.json", headline)
+    number_cards = data_extract.drop_cards_in_window(
+        data_extract.plan_number_cards(script["full_text"], audio_ms, words=words), index_board, headline
+    )
     if number_cards:
         _write_json(edit / "number_cards.json", number_cards)
-    logo_cues = emoticon_map.plan_company_logo_cues(words)
+    logo_cues = emoticon_map.plan_company_logo_cues(words, segments=segments or None, logo_dir=root / "company")
     if logo_cues:
         _write_json(edit / "company_logo_cues.json", logo_cues)
     highlights = emoticon_map.all_highlight_keywords(words)
@@ -242,9 +247,12 @@ def _run_steps(
         caption_segments=segments,
         company_logo_cues=logo_cues,
         number_cards=number_cards,
+        index_board=index_board,
+        headline=headline,
         highlight_keywords=highlights,
         opening_text=script["opening"]["visual"],
-        opening_duration_ms=opening_ms,
+        source_text=script["opening"].get("source", ""),
+        opening_duration_ms=opening.OPENING_BADGE_MS,
         show_opening=config.show_opening,
         cta_text=CTA_TEXT[config.language],
         show_outro=config.show_outro,

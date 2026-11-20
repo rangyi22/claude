@@ -1,61 +1,55 @@
 import React from "react";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { CONTENT_HEIGHT, CONTENT_TOP, FONT_DISPLAY, WIDTH } from "./layout";
+import { CONTENT_TOP, FONT_DISPLAY, WIDTH } from "./layout";
 
-// Big centered opening box ("2026년 M월 D일\n데이브리핑"), rendered inside a
-// Sequence that lasts openingDurationMs (only when showOpening).
+// Small date badge ("2026년 M월 D일 데이브리핑") at the top of the image area,
+// shown over the hook for openingDurationMs (only when showOpening). The date is
+// not spoken, so the hook starts at 0s.
 export const OpeningBriefing: React.FC<{ text: string; durationInFrames: number }> = ({
   text,
   durationInFrames,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pop = spring({ frame, fps, config: { damping: 14, stiffness: 150 } });
-  const fadeOut = interpolate(frame, [durationInFrames - 6, durationInFrames], [1, 0], {
+  const drop = spring({ frame, fps, config: { damping: 14, stiffness: 160 } });
+  const fadeOut = interpolate(frame, [durationInFrames - 8, durationInFrames], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const lines = text.split("\n").filter((l) => l.trim().length > 0);
+  const flat = text.replace(/\s*\n\s*/g, " ").trim();
+  const cut = flat.lastIndexOf(" ");
+  const date = cut > 0 ? flat.slice(0, cut) : flat;
+  const label = cut > 0 ? flat.slice(cut + 1) : "";
 
   return (
     <div
       style={{
         position: "absolute",
-        top: CONTENT_TOP,
+        top: CONTENT_TOP + 24,
         left: 0,
         width: WIDTH,
-        height: CONTENT_HEIGHT,
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
         opacity: fadeOut,
+        transform: `translateY(${(drop - 1) * 40}px)`,
       }}
     >
       <div
         style={{
-          transform: `scale(${pop})`,
           backgroundColor: "#111111",
-          border: "10px solid #FFD600",
-          borderRadius: 40,
-          padding: "56px 72px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 12,
+          border: "5px solid #FFD600",
+          borderRadius: 999,
+          padding: "12px 36px",
           fontFamily: FONT_DISPLAY,
           fontWeight: 900,
+          fontSize: 46,
           color: "#FFFFFF",
-          textAlign: "center",
+          whiteSpace: "nowrap",
+          boxShadow: "0 8px 20px rgba(0,0,0,0.35)",
         }}
       >
-        {lines.map((line, i) => (
-          <div
-            key={`${i}-${line}`}
-            style={{ fontSize: i === lines.length - 1 ? 120 : 84, color: i === lines.length - 1 ? "#FFD600" : "#FFFFFF" }}
-          >
-            {line}
-          </div>
-        ))}
+        {date}
+        {label ? <span style={{ color: "#FFD600", marginLeft: 14 }}>{label}</span> : null}
       </div>
     </div>
   );

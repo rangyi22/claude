@@ -36,8 +36,10 @@ export type CaptionSegment = {
 };
 
 export type CompanyLogoCue = {
-  logoFileName: string; // e.g. company/apple.png
+  logoFileName: string; // e.g. company/apple.png; "" => no real logo, draw a text badge
   name: string;
+  label?: string; // Korean name for the badge ("애플")
+  ticker?: string; // "AAPL" ("" for private companies)
   startMs: number;
   durationMs: number;
 };
@@ -49,6 +51,25 @@ export type NumberCard = {
   tone?: "up" | "down" | "neutral"; // down => red card (same rule as captions)
 };
 
+export type IndexBoardRow = {
+  name: string; // "S&P 500", "나스닥", "다우" ...
+  value: string; // "0.94%", "7,230" or "" (direction only)
+  tone: "up" | "down" | "neutral";
+  startMs: number; // row reveal = start of that index sentence (words.json)
+};
+
+export type IndexBoard = {
+  rows: IndexBoardRow[];
+  startMs: number;
+  durationMs: number;
+};
+
+export type Headline = {
+  lines: string[]; // e.g. ["5주 연속 상승", "2024년 이후 최장"]
+  startMs: number; // hook sentence segment (words.json)
+  durationMs: number;
+};
+
 export type CueProps = {
   audioFileName: string;
   wordsFileName: string;
@@ -58,8 +79,11 @@ export type CueProps = {
   captionSegments: CaptionSegment[];
   companyLogoCues: CompanyLogoCue[];
   numberCards: NumberCard[];
+  indexBoard: IndexBoard | null;
+  headline: Headline | null;
   highlightKeywords: string[];
   openingText: string;
+  sourceText: string; // "데이터 기준: 11월 13일(금)" or ""
   openingDurationMs: number;
   showOpening: boolean;
   ctaText: string;
