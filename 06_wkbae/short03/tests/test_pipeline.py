@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from md2short import cli, photo_engine, pipeline, render, state, transcript, voice
+from md2short import cli, opening, photo_engine, pipeline, render, state, transcript, voice
 from md2short.schema import JobConfig
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg 필요")
@@ -129,11 +129,13 @@ def test_props_and_opening_contract(fake_apis, tmp_path):
     _run(tmp_path)
     props = fake_apis["render"][0]
     assert props["showOpening"] is True
-    assert props["openingDurationMs"] == _words()[2]["end"]
+    # 날짜는 음성 없는 배지: 고정 표시 시간, 자막 suppression 없음 (§5.10)
+    assert props["openingDurationMs"] == opening.OPENING_BADGE_MS
     assert "데이브리핑" in props["openingText"]
+    assert "데이브리핑" not in fake_apis["tts"][0]
     assert props["durationInFrames"] == 180  # 6000ms × 30fps
-    # opening 단어는 caption segment 에서 제외된다
-    assert props["captionSegments"][0]["wordStart"] == 3
+    assert props["captionSegments"][0]["wordStart"] == 0
+    assert props["emoticonCues"][0]["startMs"] == 0
     # numeric_display 가 "삼점이 퍼센트" 를 원문 표시형으로 복원
     words = json.loads(next((tmp_path / "jobs").glob("*/transcripts/words.json")).read_text())["words"]
     assert any("3.2" in w["text"] for w in words)
@@ -165,6 +167,7 @@ def test_photo_failure_falls_back_to_emoticon(fake_apis, tmp_path, monkeypatch):
     events = []
 
     def boom(*a, on_stage=None, **k):
+        assert on_stage is not None
         on_stage("photo_generating")
         raise photo_engine.PhotoEngineError("all prompts moderation_blocked")
 
@@ -348,10 +351,12 @@ def test_pipeline_with_real_remotion_render(monkeypatch, tmp_path):
 
     def fake_synthesize(text, voice_id, out_path, api_key, speed=1.0, log_dir=None, client=None):
         _make_audio(Path(out_path))
+        assert log_dir is not None
         (Path(log_dir) / "tts_input.txt").write_text(text, encoding="utf-8")
         return Path(out_path)
 
     def fake_transcribe(audio_path, api_key, *, audio_duration_ms, raw_log_path=None, **kw):
+        assert raw_log_path is not None
         Path(raw_log_path).write_text("{}", encoding="utf-8")
         return {"language_code": "kor", "audio_duration_ms": audio_duration_ms, "text": "", "words": _words()}
 

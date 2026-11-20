@@ -14,12 +14,15 @@ const defaultProps: CueProps = {
   captionSegments: [],
   companyLogoCues: [],
   numberCards: [],
+  indexBoard: null,
+  headline: null,
   highlightKeywords: [],
   openingText: "",
+  sourceText: "",
   openingDurationMs: 0,
   showOpening: false,
   ctaText: "🐯 구독 + 알람",
-  showOutro: false,
+  showOutro: true,
   durationInFrames: 900,
 };
 

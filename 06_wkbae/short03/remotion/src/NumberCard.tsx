@@ -1,15 +1,17 @@
 import React from "react";
 import { Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { CONTENT_TOP, FONT_DISPLAY, WIDTH } from "./layout";
+import { CONTENT_HEIGHT, CONTENT_TOP, FONT_DISPLAY, HEIGHT, WIDTH } from "./layout";
 import { msToFrames } from "./time";
 import type { NumberCard as NumberCardCue } from "./types";
 
 export const NUMBER_CARD_DURATION_MS = 1800;
+const CARD_BOTTOM_GAP = 40;
 
-const Card: React.FC<{ text: string; index: number; durationInFrames: number }> = ({
+const Card: React.FC<{ text: string; index: number; durationInFrames: number; down: boolean }> = ({
   text,
   index,
   durationInFrames,
+  down,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -21,11 +23,13 @@ const Card: React.FC<{ text: string; index: number; durationInFrames: number }> 
   });
   const fontSize = text.length > 8 ? 76 : 96;
 
+  // Bottom of the image area: emoticon art carries its own text at the top
+  // ("깜짝 성장", "전량 매도!"), so a top card would cover it.
   return (
     <div
       style={{
         position: "absolute",
-        top: CONTENT_TOP + 60,
+        bottom: HEIGHT - (CONTENT_TOP + CONTENT_HEIGHT) + CARD_BOTTOM_GAP,
         left: 0,
         width: WIDTH,
         display: "flex",
@@ -36,8 +40,8 @@ const Card: React.FC<{ text: string; index: number; durationInFrames: number }> 
       <div
         style={{
           transform: `scale(${pop}) rotate(${tilt * pop}deg)`,
-          backgroundColor: "#FFD600",
-          color: "#111111",
+          backgroundColor: down ? "#FF5A5A" : "#FFD600",
+          color: down ? "#FFFFFF" : "#111111",
           border: "8px solid #111111",
           borderRadius: 28,
           padding: "18px 44px",
@@ -72,7 +76,7 @@ export const NumberCards: React.FC<{ cards: NumberCardCue[] }> = ({ cards }) => 
             durationInFrames={durationInFrames}
             layout="none"
           >
-            <Card text={card.text} index={index} durationInFrames={durationInFrames} />
+            <Card text={card.text} index={index} durationInFrames={durationInFrames} down={card.tone === "down"} />
           </Sequence>
         );
       })}

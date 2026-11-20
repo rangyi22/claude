@@ -56,8 +56,18 @@ uv run md2short run sample.md
 | `--chunk-size` | `14` | 자막 segment 최대 단어 수 안전 상한 (1~24) |
 | `--bg` | `0xFFFFFF` | 가운데 메인 섹션 배경색 |
 | `--model` | `gpt-5-mini` | 대본 생성 모델 |
-| `--no-opening` / `--outro` | opening on / outro off | 날짜 오프닝, 마지막 구독 CTA |
+| `--no-opening` / `--no-outro` | opening on / outro on | 상단 날짜 배지(음성 없음), 마지막 구독 CTA + 투자 면책 문구 |
 | `--output`, `-o` | `output/ret.mp4` | 최종 사본 경로 |
+| `--date` | (없음) | 데이터 기준일 `YYYY-MM-DD` (원고 front-matter `date:`보다 우선) |
+
+데이터 기준일은 원고 맨 위 front-matter로 넣는다. 배지(`11월 13일(금) 데이브리핑`)와 아웃트로 출처 표기에 쓰인다. 없으면 배지에 `데이브리핑`만 표시한다.
+
+```markdown
+---
+date: 2026-11-13
+---
+지난 금요일 미국 증시, 강하게 상승 마감했습니다.
+```
 
 스토리보드 입력은 `### 1컷` 헤딩 아래 `- 자막: ...`, `- 화면 연출: ...`, `- 이미지 프롬프트: ...` 형식으로 작성한다. `자막`만 내레이션에 사용된다.
 
@@ -83,6 +93,6 @@ uv run pytest -q -m "not render"   # 렌더 테스트 제외
 현재 로고·폰트는 placeholder다. 파일만 교체하면 코드 수정 없이 반영된다.
 
 - `img/header_logo.png` — 상단 헤더 로고 (220px 높이 영역)
-- `company/<slug>.png` — 회사 로고 cue (`company/README.md` 참고)
+- `company/<slug>.png` — 회사 로고 cue. 파일이 없으면 한글 이름 + 티커 배지(`애플`/`AAPL`)로 표시 (`company/README.md` 참고, placeholder는 `company/_placeholder/`)
 - `font/` + `font/font.css` — `SeoulAlrim` / `SeoulNotice` family alias
 - `emoticon/` — 호랑이 캐릭터 PNG 60종. **저장소에 포함되지 않으므로(약 88MB) 별도로 받아 `emoticon/`에 넣어야 한다.** 파일명(`09_가즈아_상승.png` 등)은 `md2short/emoticon_map.py`의 `EMOTICON_KEYWORDS`와 일치해야 하며, 없으면 렌더와 `tests/test_emoticon_map.py`가 실패한다.

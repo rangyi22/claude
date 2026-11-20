@@ -24,8 +24,11 @@ PROPS_KEYS = [
     "captionSegments",
     "companyLogoCues",
     "numberCards",
+    "indexBoard",
+    "headline",
     "highlightKeywords",
     "openingText",
+    "sourceText",
     "openingDurationMs",
     "showOpening",
     "ctaText",
@@ -86,14 +89,14 @@ def test_normalize_bg_color_rejects_invalid(bad):
 
 def test_build_props_opening_contract():
     on = render.build_props(
-        "sf_x", 10000, opening_text="26년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=True
+        "sf_x", 10000, opening_text="2026년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=True
     )
     assert on["showOpening"] is True
     assert on["openingDurationMs"] == 2800
-    assert on["openingText"] == "26년 11월 20일\n데이브리핑"
+    assert on["openingText"] == "2026년 11월 20일\n데이브리핑"
 
     off = render.build_props(
-        "sf_x", 10000, opening_text="26년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=False
+        "sf_x", 10000, opening_text="2026년 11월 20일\n데이브리핑", opening_duration_ms=2800, show_opening=False
     )
     assert off["showOpening"] is False
     assert off["openingDurationMs"] == 0  # §5.10 suppression 0ms
@@ -215,7 +218,7 @@ def test_build_render_command_exact():
     cmd = render.build_render_command("/abs/out.mp4", "/abs/props.json")
     assert cmd == [
         "npx", "remotion", "render", "src/index.ts", "TechExplainer", "/abs/out.mp4",
-        "--props=/abs/props.json", "--codec=h264", "--width=1080", "--height=1920",
+        "--props=/abs/props.json", "--codec=h264", "--audio-bitrate=192k", "--width=1080", "--height=1920",
         "--log=warn", "--overwrite",
     ]
 
@@ -375,9 +378,17 @@ def test_render_remotion_smoke(tmp_path):
              "keyword": "상승", "assetKind": "emoticon", "visualMode": "emoticon"}
         ],
         number_cards=[{"text": "+5%", "startMs": 1300, "durationMs": 1800}],
-        company_logo_cues=[{"logoFileName": "company/apple.png", "name": "Apple", "startMs": 400, "durationMs": 1800}],
+        company_logo_cues=[{"logoFileName": "", "name": "Apple", "label": "애플", "ticker": "AAPL", "startMs": 400, "durationMs": 1800}],
+        index_board={"rows": [{"name": "나스닥", "value": "0.94%", "tone": "up", "startMs": 2000},
+                              {"name": "다우", "value": "", "tone": "down", "startMs": 2400}],
+                     "startMs": 2000, "durationMs": 800},
+        headline={"lines": ["5주 연속 상승", "2024년 이후 최장"], "startMs": 0, "durationMs": 1200},
         highlight_keywords=["애플", "반도체"],
-        show_opening=False,
+        opening_text="11월 13일(금) 데이브리핑",
+        opening_duration_ms=1000,
+        source_text="데이터 기준: 11월 13일(금)",
+        show_opening=True,
+        show_outro=True,
     )
     out = tmp_path / "edit" / "final.mp4"
     log = tmp_path / "logs" / "remotion.log"

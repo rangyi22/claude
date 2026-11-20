@@ -11,11 +11,18 @@ export const DEFAULT_CHUNK_SIZE = 14;
 export const MAX_CHUNK_SIZE = 24;
 
 const CAPTION_HOLD_MS = 800;
-const MAX_FONT_SIZE = 72;
-const MIN_FONT_SIZE = 34;
+// Near-fixed size: long segments wrap to a 3rd line instead of shrinking.
+const MAX_FONT_SIZE = 68;
+const MIN_FONT_SIZE = 56;
 const TEXT_WIDTH = 1000;
-const MAX_LINES = 2;
+const MAX_LINES = 3;
+// Captions hug the top of the bottom bar (just under the image) so they stay
+// above the Shorts/Reels title + channel overlay near the screen bottom.
+const CAPTION_TOP_PADDING = 36;
+const UNSPOKEN_OPACITY = 0.8;
 const HIGHLIGHT_COLOR = "#FFD600";
+const DOWN_HIGHLIGHT_COLOR = "#FF5A5A";
+const DOWN_KEYWORD_RE = /하락|급락|폭락|추락|감소|약세|매도|손절|부진|적자/;
 
 type CaptionToken = { text: string; start: number | null; end: number | null };
 
@@ -106,8 +113,10 @@ const buildChunks = (
 
 const normalize = (text: string) => text.replace(/[\s.,!?。！？…"'“”‘’()[\]{}:;~·-]/g, "");
 
-// One yellow keyword per chunk: the longest keyword that appears in a token.
-const pickHighlightIndex = (tokens: CaptionToken[], keywords: string[]): number => {
+type Highlight = { index: number; keyword: string } | null;
+
+// One keyword per chunk: the longest keyword that appears in a token.
+const pickHighlight = (tokens: CaptionToken[], keywords: string[]): Highlight => {
   const sorted = [...keywords]
     .map(normalize)
     .filter((k) => k.length > 0)
@@ -115,10 +124,56 @@ const pickHighlightIndex = (tokens: CaptionToken[], keywords: string[]): number 
   for (const keyword of sorted) {
     const idx = tokens.findIndex((t) => normalize(t.text).includes(keyword));
     if (idx >= 0) {
-      return idx;
+      return { index: idx, keyword };
     }
   }
-  return -1;
+  return null;
+};
+
+// Data values worth highlighting: percentages and comma-grouped numbers
+// ("0.94%", "18%", "7,230"). Years/counts like "2024년", "5주" stay white.
+const NUMBER_RE = /[+\-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|[+\-−]?\d+(?:\.\d+)?%/g;
+
+type ColorRange = { start: number; end: number; color: string };
+
+// Colors only the keyword / number inside the token ("상승이라는" -> "상승" +
+// "이라는", "7,230을" -> "7,230" + "을") so particles and endings stay white.
+// Decline keywords use red, others yellow; numbers follow the chunk's direction.
+const HighlightedText: React.FC<{ text: string; keyword: string | null; numberColor: string }> = ({
+  text,
+  keyword,
+  numberColor,
+}) => {
+  const ranges: ColorRange[] = [];
+  for (const m of text.matchAll(NUMBER_RE)) {
+    ranges.push({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length, color: numberColor });
+  }
+  if (keyword) {
+    const at = text.indexOf(keyword);
+    const color = DOWN_KEYWORD_RE.test(keyword) ? DOWN_HIGHLIGHT_COLOR : HIGHLIGHT_COLOR;
+    if (at >= 0) {
+      ranges.push({ start: at, end: at + keyword.length, color });
+    } else {
+      ranges.push({ start: 0, end: text.length, color });
+    }
+  }
+  ranges.sort((a, b) => a.start - b.start);
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  ranges.forEach((r, i) => {
+    if (r.start < cursor) {
+      return; // overlapping range: first one wins
+    }
+    parts.push(text.slice(cursor, r.start));
+    parts.push(
+      <span key={i} style={{ color: r.color }}>
+        {text.slice(r.start, r.end)}
+      </span>,
+    );
+    cursor = r.end;
+  });
+  parts.push(text.slice(cursor));
+  return <>{parts}</>;
 };
 
 const fontSizeFor = (tokens: CaptionToken[]): number => {
@@ -132,15 +187,13 @@ export const Captions: React.FC<{
   captionSegments: CaptionSegment[];
   chunkSize: number;
   highlightKeywords: string[];
-  showOpening: boolean;
-  openingDurationMs: number;
-}> = ({ words, captionSegments, chunkSize, highlightKeywords, showOpening, openingDurationMs }) => {
+}> = ({ words, captionSegments, chunkSize, highlightKeywords }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const chunks = React.useMemo(
-    () => buildChunks(words, captionSegments, chunkSize, showOpening ? openingDurationMs : 0),
-    [words, captionSegments, chunkSize, showOpening, openingDurationMs],
+    () => buildChunks(words, captionSegments, chunkSize, 0),
+    [words, captionSegments, chunkSize],
   );
 
   const active = chunks.find(
@@ -151,7 +204,9 @@ export const Captions: React.FC<{
   }
 
   const fontSize = fontSizeFor(active.tokens);
-  const highlightIdx = pickHighlightIndex(active.tokens, highlightKeywords);
+  const highlight = pickHighlight(active.tokens, highlightKeywords);
+  const chunkText = active.tokens.map((t) => t.text).join(" ");
+  const numberColor = DOWN_KEYWORD_RE.test(chunkText) ? DOWN_HIGHLIGHT_COLOR : HIGHLIGHT_COLOR;
   const lineHeight = 1.3;
 
   return (
@@ -162,8 +217,10 @@ export const Captions: React.FC<{
         bottom: 0,
         width: WIDTH,
         height: BOTTOM_BAR_HEIGHT,
+        boxSizing: "border-box",
+        paddingTop: CAPTION_TOP_PADDING,
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
       }}
     >
@@ -196,19 +253,22 @@ export const Captions: React.FC<{
                 extrapolateRight: "clamp",
               })
             : 1;
-          const color = i === highlightIdx ? HIGHLIGHT_COLOR : "#FFFFFF";
           return (
             <span
               key={`${i}-${token.text}`}
               style={{
                 display: "inline-block",
-                color,
-                opacity: spoken ? 1 : 0.55,
+                color: "#FFFFFF",
+                opacity: spoken ? 1 : UNSPOKEN_OPACITY,
                 transform: `scale(${scale})`,
                 textShadow: "0 4px 10px rgba(0,0,0,0.6)",
               }}
             >
-              {token.text}
+              <HighlightedText
+                text={token.text}
+                keyword={highlight && i === highlight.index ? highlight.keyword : null}
+                numberColor={numberColor}
+              />
             </span>
           );
         })}

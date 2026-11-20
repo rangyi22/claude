@@ -142,8 +142,11 @@ def build_props(
     caption_segments: list[dict[str, Any]] | None = None,
     company_logo_cues: list[dict[str, Any]] | None = None,
     number_cards: list[dict[str, Any]] | None = None,
+    index_board: dict[str, Any] | None = None,
+    headline: dict[str, Any] | None = None,
     highlight_keywords: list[str] | None = None,
     opening_text: str = "",
+    source_text: str = "",
     opening_duration_ms: int = 0,
     show_opening: bool = True,
     cta_text: str = CTA_TEXT["ko"],
@@ -152,7 +155,7 @@ def build_props(
     """architecture.md §4.3 키 그대로의 Remotion props 를 만든다.
 
     durationInFrames 는 실제 TTS 오디오 길이(§1.4)로만 결정한다.
-    show_opening=False 이면 caption suppression 을 0ms 로 전달한다(§5.10).
+    openingDurationMs 는 날짜 배지 표시 시간이며 show_opening=False 이면 0 (§5.10).
     """
     return {
         "audioFileName": f"jobs/{job_id}/narration.mp3",
@@ -163,8 +166,11 @@ def build_props(
         "captionSegments": list(caption_segments or []),
         "companyLogoCues": list(company_logo_cues or []),
         "numberCards": list(number_cards or []),
+        "indexBoard": index_board,
+        "headline": headline,
         "highlightKeywords": list(highlight_keywords or []),
         "openingText": opening_text if show_opening else "",
+        "sourceText": source_text,
         "openingDurationMs": int(opening_duration_ms) if show_opening else 0,
         "showOpening": bool(show_opening),
         "ctaText": cta_text,
@@ -234,6 +240,7 @@ def build_render_command(output_path: Path | str, props_path: Path | str) -> lis
         str(output_path),
         f"--props={props_path}",
         "--codec=h264",
+        "--audio-bitrate=192k",  # 음성 위주 — 기본 320k 는 과함
         f"--width={VIDEO_WIDTH}",
         f"--height={VIDEO_HEIGHT}",
         "--log=warn",

@@ -330,7 +330,7 @@ def plan_photo_cues(
     need = [i for i, p in enumerate(prompts) if p is None]
 
     own_client = client is None
-    http = httpx.Client(timeout=IMAGE_TIMEOUT) if own_client else client
+    http = httpx.Client(timeout=IMAGE_TIMEOUT) if client is None else client
     try:
         if need:
             batch = [

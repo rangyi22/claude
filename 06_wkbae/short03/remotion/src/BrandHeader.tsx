@@ -2,7 +2,7 @@ import React from "react";
 import { Img, staticFile } from "remotion";
 import { HEADER_HEIGHT, HEADER_LOGO_HEIGHT, HEADER_SAFE_MARGIN, WIDTH } from "./layout";
 
-// Top 470px black band = 250px safe margin + 220px logo (img/header_logo.png).
+// Top 360px black band = 140px safe margin + 220px logo (img/header_logo.png).
 export const BrandHeader: React.FC = () => (
   <div
     style={{
