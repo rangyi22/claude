@@ -177,6 +177,7 @@ def _match_acronym(words: list[dict], i: int, acronym: str) -> tuple[int, str] |
             continue
         best: tuple[float, str] | None = None
         for v in variants:
+            cand: tuple[float, str] | None
             if acc.upper().startswith(v) and (len(acc) == len(v) or not acc[len(v)].isalpha() or not acc[len(v)].isascii()):
                 cand = (1.0, acc[len(v):])
             else:

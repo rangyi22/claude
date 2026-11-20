@@ -28,8 +28,10 @@ def test_threshold_constants():
     assert nd.ACRONYM_MAX_SCAN_WORDS == 96
     assert nd.NUMBER_MAX_SCAN_WORDS == 96
     assert "에센피" in nd._ACRONYM_KO_VARIANTS["S&P"]
-    assert nd._ACRONYM_TOKEN_RE.search("S&P500")["acr"] == "S&P"
-    assert nd._ACRONYM_TOKEN_RE.search("S&P 500")["acrnum"] == "500"
+    m1 = nd._ACRONYM_TOKEN_RE.search("S&P500")
+    m2 = nd._ACRONYM_TOKEN_RE.search("S&P 500")
+    assert m1 and m1["acr"] == "S&P"
+    assert m2 and m2["acrnum"] == "500"
 
 
 def test_parse_korean_number():

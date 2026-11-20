@@ -36,8 +36,9 @@ def post_with_retry(
 ) -> httpx.Response:
     """POST 후 성공 응답을 반환한다. 재시도 소진/비재시도 4xx 는 APIError."""
     own_client = client_or_none is None
-    client = httpx.Client(timeout=timeout) if own_client else client_or_none
+    client = httpx.Client(timeout=timeout) if client_or_none is None else client_or_none
     last_error = "unknown error"
+    status: int | None = None
     try:
         for attempt in range(retries + 1):
             try:

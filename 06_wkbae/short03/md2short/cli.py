@@ -10,6 +10,7 @@ import re
 import shutil
 import time
 from pathlib import Path
+from typing import Literal, NoReturn, cast
 
 import typer
 
@@ -26,7 +27,7 @@ _DURATION_RE = re.compile(r"^(\d+(?:\.\d+)?)([smhd]?)$")
 _UNIT_SECONDS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
-def _fail_input(message: str) -> None:
+def _fail_input(message: str) -> NoReturn:
     typer.secho(f"error: {message}", fg=typer.colors.RED, err=True)
     raise typer.Exit(EXIT_INPUT)
 
@@ -94,7 +95,7 @@ def run(
         template_id=template,
         bg_color=_normalize_bg(bg),
         chunk_size=chunk_size,
-        visual_mode=visual_mode,
+        visual_mode=cast(Literal["emoticon", "photo"], visual_mode),  # 위에서 검증됨
         show_opening=opening,
         show_outro=outro,
     )

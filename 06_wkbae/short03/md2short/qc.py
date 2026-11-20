@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict
 
 SYNC_TAIL_TOLERANCE_MS = 1000
 RENDER_AUDIO_TOLERANCE_MS = 100
@@ -18,13 +18,21 @@ OPENAI_GPT55_OUTPUT_USD_PER_1M = 10.00
 CHARS_PER_TOKEN = 4
 
 
+class CostEstimate(TypedDict):
+    elevenlabs_tts_usd: float
+    elevenlabs_stt_usd: float
+    openai_text_usd: float
+    total_usd: float
+    excludes: str
+
+
 def estimate_cost(
     *,
     tts_chars: int,
     audio_duration_ms: int,
     openai_input_chars: int = 0,
     openai_output_chars: int = 0,
-) -> dict[str, float]:
+) -> CostEstimate:
     """TTS/STT/텍스트 LLM 근사 비용. photo 모드 이미지 비용은 합산하지 않는다."""
     tts = tts_chars / 1000 * ELEVENLABS_TTS_USD_PER_1K_CHARS
     stt = audio_duration_ms / 1000 / 3600 * ELEVENLABS_STT_USD_PER_HOUR

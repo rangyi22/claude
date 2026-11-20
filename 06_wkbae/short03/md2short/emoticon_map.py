@@ -154,7 +154,7 @@ def _text_candidates(text: str) -> list[tuple[float, int, str, str]]:
 
 def _fallback_file(text: str, span_index: int, prev: str | None) -> str:
     norm = _norm(text)
-    pool = _NEUTRAL_FILES
+    pool: tuple[str, ...] = _NEUTRAL_FILES
     for _name, (triggers, files) in FALLBACK_CATEGORIES.items():
         if triggers and any(t in norm for t in triggers):
             pool = files
@@ -213,7 +213,8 @@ def plan_cues(
         # 스토리보드 `화면 연출`이 있으면 그 키워드를 우선 사용한다 (architecture.md §5.1).
         cands = _text_candidates(direction) + _span_candidates(words, s, e)
         text = " ".join(str(w["text"]) for w in words[s:e])
-        file = keyword = None
+        file: str | None = None
+        keyword = ""
         for _score, _order, kw, fname in cands:
             if fname != prev:
                 file, keyword = fname, kw
