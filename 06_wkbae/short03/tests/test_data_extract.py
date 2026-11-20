@@ -188,3 +188,23 @@ def test_cards_dropped_in_headline_and_board_windows():
     head = {"startMs": 0, "durationMs": 1000}
     board = {"startMs": 2000, "durationMs": 1000}
     assert [c["text"] for c in drop_cards_in_window(cards, head, board)] == ["c"]
+
+
+
+def test_headline_strips_verb_endings():
+    from md2short.data_extract import plan_headline
+
+    def lines(text):
+        h = plan_headline([{"startMs": 0, "endMs": 10, "text": text}])
+        return h["lines"] if h else None
+
+    # 조사 + 서술 어미(하며/하고/했고/했으며/하면서/하는/했다)는 명사구에서 제거된다
+    assert lines("미국 증시가 5주 연속 상승하며 2024년 이후 최장 랠리를 기록했습니다.") == ["5주 연속 상승", "2024년 이후 최장"]
+    assert lines("5주 연속 상승하고 있습니다.") == ["5주 연속 상승"]
+    assert lines("3일 연속 하락했고 반등했습니다.") == ["3일 연속 하락"]
+    assert lines("5주 연속 상승했으며 안정적입니다.") == ["5주 연속 상승"]
+    assert lines("5주 연속 상승하면서 마감했습니다.") == ["5주 연속 상승"]
+    assert lines("5주 연속 상승하는 흐름입니다.") == ["5주 연속 상승"]
+    assert lines("5주 연속 하락했다.") == ["5주 연속 하락"]
+    # 기존 조사 규칙은 그대로
+    assert lines("5주 연속 상승을 기록했습니다.") == ["5주 연속 상승"]
